@@ -69,7 +69,7 @@ price_hist = get_live_data()
 tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
 with tab1:
-    # 1. SYSTEM CONFIGURATION
+    # --- CONFIGURATION ---
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -85,7 +85,7 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Miner Breakeven: **${breakeven:.2f}/MWh**")
 
-    # 2. LIVE POWER & PERFORMANCE
+    # --- LIVE PERFORMANCE ---
     st.markdown("---")
     st.subheader("📊 Live Power & Performance")
     curr_p = price_hist.iloc[-1]
@@ -99,7 +99,7 @@ with tab1:
     st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
     st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
 
-    # 3. HYBRID OPTIMIZATION ENGINE
+    # --- OPTIMIZATION ENGINE ---
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
@@ -121,13 +121,13 @@ with tab1:
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 4. DYNAMIC HISTORICAL PERFORMANCE
+    # --- CUMULATIVE ALPHA ---
     st.markdown("---")
     st.subheader("📅 Historical Performance (Alpha Revenue Split)")
-    daily_mine_alpha, daily_batt_alpha = mining_yield_annual / 365, battery_yield_annual / 365
+    daily_m_a, daily_b_a = mining_yield_annual / 365, battery_yield_annual / 365
     def show_split_cum(col, label, days, base_rev):
         scale_f = (total_gen / 200); c_total = (base_rev * scale_f) * 0.65
-        m_a, b_a = daily_mine_alpha * days, daily_batt_alpha * days
+        m_a, b_a = daily_m_a * days, daily_b_a * days
         o_total = c_total + m_a + b_a
         with col:
             st.markdown(f"#### {label}")
@@ -160,34 +160,35 @@ with tab2:
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
         ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         base = (solar_cap * 82500 + wind_cap * 124000)
-        net = (((m*1e6)/m_eff)*m_cost) + (b*BATT_COST_PER_MW*(1-itc))
+        m_cap = ((m * 1e6) / m_eff) * m_cost
+        b_cap = b * BATT_COST_PER_MW
+        net = m_cap + (b_cap * (1 - itc))
         irr, roi = (ma+ba)/net*100 if net > 0 else 0, net/(ma+ba) if (ma+ba)>0 else 0
-        return ma, ba, base, net, irr, roi
+        return ma, ba, base, net, irr, roi, m_cap, b_cap
 
     s00, s10, s0t, s1t = get_metrics(m_load_input, batt_mw_input, 0), get_metrics(ideal_m, ideal_b, 0), get_metrics(m_load_input, batt_mw_input, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
+
     ca, cb, cc, cd = st.columns(4)
     def draw_card(col, lbl, met, m_v, b_v, sub):
         with col:
             st.write(f"### {lbl}"); st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
-            st.markdown(f"<h1 style='color: #28a745;'>${(met[0]+met[1]+met[2]):,.0f}</h1>", unsafe_allow_html=True)
-            st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Y**")
-            st.write(f"* ⛏️ Mining: `${met[0]:,.0f}` | 🔋 Battery: `${met[1]:,.0f}`")
-            st.write(f"* ⚡ Grid: `${met[2]:,.0f}`")
-    draw_card(ca, "1. Pre-Opt", s00, m_load_input, batt_mw_input, "Current/No Tax"); draw_card(cb, "2. Opt (Pre-Tax)", s10, ideal_m, ideal_b, "Ideal/No Tax")
-    draw_card(cc, "3. Current (Post-Tax)", s0t, m_load_input, batt_mw_input, "Current/Full Tax"); draw_card(cd, "4. Opt (Post-Tax)", s1t, ideal_m, ideal_b, "Ideal/Full Tax")
+            st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${(met[0]+met[1]+met[2]):,.0f}</h1>", unsafe_allow_html=True)
+            st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Yrs**")
+            st.write(f" * ⚡ Grid Base: `${met[2]:,.0f}`")
+            st.write(f" * ⛏️ Mining Alpha: `${met[0]:,.0f}`")
+            st.write(f" * 🔋 Battery Alpha: `${met[1]:,.0f}`")
+            st.write(f" * ⚙️ Miner Capex: `${met[6]:,.0f}`")
+            st.write(f" * 🔋 Battery Capex (Pre-Tax): `${met[7]:,.0f}`")
+            st.write("---")
+
+    draw_card(ca, "1. Pre-Opt", s00, m_load_input, batt_mw_input, "Current/No Tax")
+    draw_card(cb, "2. Opt (Pre-Tax)", s10, ideal_m, ideal_b, "Ideal/No Tax")
+    draw_card(cc, "3. Current (Post-Tax)", s0t, m_load_input, batt_mw_input, "Current/Full Tax")
+    draw_card(cd, "4. Opt (Post-Tax)", s1t, ideal_m, ideal_b, "Ideal/Full Tax")
 
 with tab3:
     st.subheader("📈 Long-Term Volatility")
-    # RESTORED FULL TABLES
     st.markdown("#### 1. West Texas (HB_WEST) Price Frequency")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
     st.markdown("#### 2. ERCOT System-Wide Price Frequency")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
-    st.markdown("---")
-    st.subheader("🧐 Strategic Trend Analysis")
-    st.write("ERCOT’s grid is shifting toward a **binary state** of extreme excess or scarcity. This volatility spread favors hybrid assets over pure generators.")
-    st.write("""
-    * **Lower Bound:** Sub-2¢ pricing is now a system-wide trend. HB_WEST negative frequency is projected to hit **12.1%** by 2025—3x the system average.
-    * **Upper Bound:** Late afternoon 'Duck Curve' drop-offs cause scarcity spikes, often exceeding $1.00/kWh. This is the primary revenue driver for **Battery Alpha**.
-    """)
-    st.table(pd.DataFrame({"Price Category": ["Negative (<$0)", "$0 - $0.02", "High ($1.00+)"], "2021 Frequency": ["2.1%", "18.2%", "0.8%"], "2025 Frequency": ["12.1%", "33.5%", "0.5% (Proj)"], "Trend": ["Expanding Lower Bound", "Fuel Saturation", "Controlled Volatility"]}).set_index("Price Category"))
