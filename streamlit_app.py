@@ -85,7 +85,7 @@ EFFICIENCY_J_TH = 19.0
 MINING_REV_MWH = (0.04 / (19 * 1e-6 * 24 * 3600)) * 1e6
 MIDLAND_LAT = 32.0
 MIDLAND_LON = -102.1
-PASSWORD = "Hardin2026"
+PASSWORD = "123"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
