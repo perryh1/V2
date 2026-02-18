@@ -1,7 +1,7 @@
-“””
+“
 Real-Time Financial Dashboard — 100 MW Renewable Energy Portfolio
 West Texas (ERCOT West Hub)
-“””
+“
 
 import streamlit as st
 import pandas as pd
