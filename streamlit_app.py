@@ -6,12 +6,8 @@ import requests
 import gridstatus
 from datetime import datetime, timedelta
 
-# --- DESKTOP LAYOUT OPTIMIZATION ---
-st.set_page_config(
-    page_title="Midland Hybrid Alpha",
-    layout="wide",  # Forces the app to use the full width of the desktop screen
-    initial_sidebar_state="collapsed"
-)
+# --- DESKTOP WIDE MODE ---
+st.set_page_config(layout="wide", page_title="Midland Hybrid Alpha")
 
 # --- CONFIGURATION ---
 DASHBOARD_PASSWORD = "123"
@@ -69,10 +65,10 @@ def get_live_data():
 price_hist = get_live_data()
 
 # --- APP TABS ---
-tab1, tab2 = st.tabs(["📊 Performance Evolution", "📈 Long-Term Volatility"])
+tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "📈 Long-Term Volatility", "🏛️ Commercial Tax"])
 
 with tab1:
-    # 1. SYSTEM CONFIGURATION
+    # --- CONFIG & LIVE ---
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -85,62 +81,19 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Breakeven Floor: **${breakeven:.2f}/MWh**")
 
-    # 2. HYBRID OPTIMIZATION ENGINE
-    st.markdown("---")
-    st.subheader("🎯 Hybrid Optimization Engine")
-    total_gen = solar_cap + wind_cap
-    s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
-    w_pct = wind_cap / total_gen if total_gen > 0 else 0.5
-    ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
-    st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
-
-    # Engine Revenue Calc for Bar Chart
-    capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
-    def get_simple_rev(m, b):
-        ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
-        return ma + ba
-    
-    cur_rev = get_simple_rev(35, batt_mw)
-    idl_rev = get_simple_rev(ideal_m, ideal_b)
-    
-    # Render Bar Chart (Restored)
-    st.metric("Annual Optimization Delta", f"${(idl_rev - cur_rev):,.0f}", delta=f"{((idl_rev - cur_rev)/cur_rev*100):.1f}% Upside")
-    fig = go.Figure(data=[
-        go.Bar(name='Current', x=['Rev'], y=[cur_rev], marker_color='#90CAF9'),
-        go.Bar(name='Ideal', x=['Rev'], y=[idl_rev], marker_color='#1565C0')
-    ])
-    fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0), showlegend=True)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # 3. LIVE POWER & PERFORMANCE
-    st.markdown("---")
-    st.subheader("📊 Live Power & Performance")
-    curr_p = price_hist.iloc[-1]
-    over_breakeven = curr_p > breakeven
-    l1, l2, l3 = st.columns(3)
-    l1.metric("Current Grid Price", f"${curr_p:.2f}/MWh")
-    l1.metric("Total Generation", f"{(total_gen * 0.358):.1f} MW")
-    l2.metric("Miner Load", f"{35.0 if not over_breakeven else 0.0} MW")
-    
-    ma_live = 35 * (breakeven - max(0, curr_p)) if not over_breakeven else 0
-    ba_live = batt_mw * curr_p if over_breakeven else (batt_mw * abs(curr_p) if curr_p < 0 else 0)
-    st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
-    st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
-
-    # 4. HISTORICAL PERFORMANCE (CUMULATIVE ALPHA)
+    # --- HISTORICAL PERFORMANCE (HORIZONTAL COLUMNS) ---
     st.markdown("---")
     st.subheader("📅 Historical Performance (Cumulative Alpha)")
     
-    def show_cum(label, total, alpha, grid, mine, batt):
-        st.markdown(f"#### {label}")
-        st.markdown(f"**Total Site Revenue**")
-        st.markdown(f"<h1>${total:,.0f}</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
-        st.write(f" * ⚡ **Grid (Base):** :green[${grid:,.0f}]")
-        st.write(f" * ⛏️ **Mining Alpha:** :green[${mine:,.0f}]")
-        st.write(f" * 🔋 **Battery Alpha:** :green[${batt:,.0f}]")
-        st.write("---")
+    def show_cum(col, label, total, alpha, grid, mine, batt):
+        with col:
+            st.markdown(f"#### {label}")
+            st.markdown(f"**Total Site Revenue**")
+            st.markdown(f"<h2 style='margin-bottom:0;'>${total:,.0f}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
+            st.write(f" * ⚡ **Grid:** :green[${grid:,.0f}]")
+            st.write(f" * ⛏️ **Mining:** :green[${mine:,.0f}]")
+            st.write(f" * 🔋 **Battery:** :green[${batt:,.0f}]")
 
     # Create 5 columns to force horizontal layout on desktop
     h1, h2, h3, h4, h5 = st.columns(5)
@@ -150,58 +103,31 @@ with tab1:
     show_cum(h4, "Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
     show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
-    # 5. TAX STRATEGY
+    # --- OPTIMIZATION ENGINE ---
     st.markdown("---")
-    st.subheader("🏛️ Commercial Tax Strategy")
-    tx1, tx2, tx3 = st.columns(3)
-    t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
-    li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
-    t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
-
-    # 6. PERFORMANCE ENGINE & CARDS
-    def get_metrics(m, b, itc_r):
-        ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
-        base = (solar_cap * 82500 + wind_cap * 124000)
-        m_cap = ((m * 1e6) / m_eff) * m_cost
-        b_cap = b * BATT_COST_PER_MW
-        net = m_cap + (b_cap * (1 - itc_r))
-        irr = (ma + ba) / net * 100 if net > 0 else 0
-        roi = net / (ma + ba) if (ma + ba) > 0 else 0
-        return ma, ba, base, net, irr, roi, m_cap, b_cap
-
-    s_cur, s_opt = get_metrics(35, batt_mw, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
-
-    st.markdown("---")
-    st.subheader("💰 Post-Tax Financial Comparison")
-    cl1, cl2 = st.columns(2)
-    with cl1:
-        st.metric("Post-Tax IRR", f"{s_cur[4]:.1f}%")
-        st.metric("Post-Tax ROI", f"{s_cur[5]:.2f} Yrs")
-    with cl2:
-        st.metric("Post-Tax IRR", f"{s_opt[4]:.1f}%")
-        st.metric("Post-Tax ROI", f"{s_opt[5]:.2f} Yrs")
-
-    st.markdown("---")
-    st.subheader("📋 Historical Performance Evolution")
-    def draw_card(lbl, met, m_v, b_v, sub):
-        st.write(f"### {lbl}")
-        st.caption(f"{sub} ({m_v}MW / {b_v}MW)")
-        total = met[0] + met[1] + met[2]
-        st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${total:,.0f}</h1>", unsafe_allow_html=True)
-        st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Yrs**")
-        st.write(f"* ⚡ Grid Base: `${met[2]:,.0f}`")
-        st.write(f"* ⛏️ Mining Alpha: `${met[0]:,.0f}`")
-        st.write(f"* 🔋 Battery Alpha: `${met[1]:,.0f}`")
-        st.write(f"* ⚙️ Miner Capex: `${met[6]:,.0f}`")
-        st.write(f"* 🔋 Battery Capex (Pre-Tax): `${met[7]:,.0f}`")
-        st.write("---")
-
-    c_a, c_b, c_c, c_d = st.columns(4)
-    with c_a: draw_card("1. Pre-Opt", get_metrics(35, batt_mw, 0), 35, batt_mw, "Current/No Tax")
-    with c_b: draw_card("2. Opt (Pre-Tax)", get_metrics(ideal_m, ideal_b, 0), ideal_m, ideal_b, "Ideal/No Tax")
-    with c_c: draw_card("3. Current (Post-Tax)", s_cur, 35, batt_mw, "Current/Full Tax")
-    with c_d: draw_card("4. Opt (Post-Tax)", s_opt, ideal_m, ideal_b, "Ideal/Full Tax")
+    st.subheader("🎯 Hybrid Optimization Engine")
+    total_gen = solar_cap + wind_cap
+    s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
+    w_pct = wind_cap / total_gen if total_gen > 0 else 0.5
+    ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
+    
+    col_a, col_b = st.columns([1, 2])
+    with col_a:
+        st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
+        capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
+        def get_simple_rev(m, b):
+            ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
+            ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
+            return ma + ba
+        cur_rev, idl_rev = get_simple_rev(35, batt_mw), get_simple_rev(ideal_m, ideal_b)
+        st.metric("Annual Optimization Delta", f"${(idl_rev - cur_rev):,.0f}", delta=f"{((idl_rev - cur_rev)/cur_rev*100):.1f}% Upside")
+    with col_b:
+        fig = go.Figure(data=[
+            go.Bar(name='Current', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'),
+            go.Bar(name='Ideal', x=['Revenue'], y=[idl_rev], marker_color='#1565C0')
+        ])
+        fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
+        st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
     st.subheader("📈 5-Year Price Frequency Dataset")
@@ -209,10 +135,42 @@ with tab2:
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
     st.markdown("#### 2. ERCOT System-Wide Average")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+
+with tab3:
+    st.subheader("🏛️ Commercial Tax Strategy")
+    tx1, tx2, tx3 = st.columns(3)
+    t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
+    li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
+    t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
+
+    def get_metrics(m, b, itc):
+        ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
+        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
+        base = (solar_cap * 82500 + wind_cap * 124000)
+        net = ((m*1e6)/m_eff)*m_cost + (b*BATT_COST_PER_MW*(1-itc))
+        irr = (ma + ba) / net * 100 if net > 0 else 0
+        roi = net / (ma + ba) if (ma + ba) > 0 else 0
+        return ma, ba, base, net, irr, roi, ((m*1e6)/m_eff)*m_cost, b*BATT_COST_PER_MW
+
+    s_cur, s_opt = get_metrics(35, batt_mw, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
+    
+    c_a, c_b = st.columns(2)
+    c_a.metric("Post-Tax IRR (Current)", f"{s_cur[4]:.1f}%")
+    c_b.metric("Post-Tax IRR (Ideal)", f"{s_opt[4]:.1f}%")
+
     st.markdown("---")
-    st.subheader("🧐 Strategic Trend Analysis")
-    st.write("""
-    * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub' for negative prices (12.1% by 2025 vs 4.2% System-wide). This confirms that behind-the-meter (BTM) miners in the West are capturing nearly 3x the 'free fuel' of the broader grid.
-    * **The 2021 Uri Impact:** System-wide assets were more exposed to scarcity pricing than West Texas during Winter Storm Uri.
-    * **Solar Saturation:** The growth in the $0-$0.02 bracket is now a system-wide phenomenon.
-    """)
+    st.subheader("📋 Historical Performance Evolution")
+    def draw_card(col, lbl, met, m_v, b_v, sub):
+        with col:
+            st.write(f"### {lbl}")
+            st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
+            st.markdown(f"<h1 style='color: #28a745;'>${(met[0]+met[1]+met[2]):,.0f}</h1>", unsafe_allow_html=True)
+            st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Y**")
+            st.write(f"* ⛏️ Mining: `${met[0]:,.0f}` | 🔋 Battery: `${met[1]:,.0f}`")
+            st.write(f"* ⚡ Grid: `${met[2]:,.0f}`")
+
+    ca, cb, cc, cd = st.columns(4)
+    draw_card(ca, "1. Pre-Opt", get_metrics(35, batt_mw, 0), 35, batt_mw, "Current/No Tax")
+    draw_card(cb, "2. Opt (Pre-Tax)", get_metrics(ideal_m, ideal_b, 0), ideal_m, ideal_b, "Ideal/No Tax")
+    draw_card(cc, "3. Current (Post-Tax)", s_cur, 35, batt_mw, "Current/Full Tax")
+    draw_card(cd, "4. Opt (Post-Tax)", s_opt, ideal_m, ideal_b, "Ideal/Full Tax")
