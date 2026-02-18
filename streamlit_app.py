@@ -81,10 +81,26 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Breakeven Floor: **${breakeven:.2f}/MWh**")
 
-    # 2. HYBRID OPTIMIZATION ENGINE
+    # 2. LIVE POWER & PERFORMANCE
+    st.markdown("---")
+    st.subheader("📊 Live Power & Performance")
+    curr_p = price_hist.iloc[-1]
+    over_breakeven = curr_p > breakeven
+    total_gen = solar_cap + wind_cap
+    
+    l1, l2, l3 = st.columns(3)
+    l1.metric("Current Grid Price", f"${curr_p:.2f}/MWh")
+    l1.metric("Total Generation", f"{(total_gen * 0.358):.1f} MW")
+    l2.metric("Miner Load", f"{35.0 if not over_breakeven else 0.0} MW")
+    
+    ma_live = 35 * (breakeven - max(0, curr_p)) if not over_breakeven else 0
+    ba_live = batt_mw * curr_p if over_breakeven else (batt_mw * abs(curr_p) if curr_p < 0 else 0)
+    st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
+    st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
+
+    # 3. HYBRID OPTIMIZATION ENGINE
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
-    total_gen = solar_cap + wind_cap
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
     w_pct = wind_cap / total_gen if total_gen > 0 else 0.5
     ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
@@ -107,7 +123,7 @@ with tab1:
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 3. HISTORICAL PERFORMANCE
+    # 4. HISTORICAL PERFORMANCE (CUMULATIVE ALPHA)
     st.markdown("---")
     st.subheader("📅 Historical Performance (Cumulative Alpha)")
     def show_cum(col, label, total, alpha, grid, mine, batt):
@@ -128,7 +144,7 @@ with tab1:
     show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
 with tab2:
-    # 4. TAX STRATEGY & CAPEX VISUALIZATION
+    # 5. TAX STRATEGY & DEFINITIONS
     st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
     
     with st.expander("📖 Explain These 4 Stages"):
@@ -136,22 +152,22 @@ with tab2:
         with col_g1:
             st.markdown("""
             **1. Pre-Opt (Baseline)**
-            * **Setup:** Uses the exact Miner MW and Battery MW currently entered in the sliders.
-            * **Taxes:** Assumes zero tax credits.
-
+            * **Setup:** Uses exact slider inputs.
+            * **Taxes:** Zero incentives.
+            
             **2. Opt (Pre-Tax)**
-            * **Setup:** Automatically adjusts to the "Ideal Sizing".
-            * **Taxes:** Still assumes zero tax incentives.
+            * **Setup:** Ideal Sizing.
+            * **Taxes:** Zero incentives.
             """)
         with col_g2:
             st.markdown("""
             **3. Current (Post-Tax)**
             * **Setup:** Reverts to original slider inputs.
-            * **Taxes:** Applies the ITC and selected bonuses.
-
+            * **Taxes:** Applies ITC/Bonuses.
+            
             **4. Opt (Post-Tax) — The "Alpha" State**
             * **Setup:** Uses the Ideal Sizing.
-            * **Taxes:** Applies the full Tax Strategy.
+            * **Taxes:** Full Tax Strategy.
             """)
 
     st.write("---")
@@ -160,9 +176,6 @@ with tab2:
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
 
-    # CAPEX VISUALIZATION
-    st.markdown("#### 💰 Net Capex Comparison (The Government Coupon)")
-    
     def get_metrics(m, b, itc):
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
         ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
@@ -172,17 +185,10 @@ with tab2:
         net = m_cap + (b_cap * (1 - itc))
         irr = (ma + ba) / net * 100 if net > 0 else 0
         roi = net / (ma + ba) if (ma + ba) > 0 else 0
-        return ma, ba, base, net, irr, roi, m_cap, b_cap
+        return ma, ba, base, net, irr, roi
 
-    m_cur_0, m_opt_0 = get_metrics(35, batt_mw, 0), get_metrics(ideal_m, ideal_b, 0)
-    m_cur_t, m_opt_t = get_metrics(35, batt_mw, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
-
-    fig_capex = go.Figure(data=[
-        go.Bar(name='Gross Capex (Pre-Tax)', x=['Current Setup', 'Optimized Setup'], y=[m_cur_0[3], m_opt_0[3]], marker_color='#EF5350'),
-        go.Bar(name='Net Capex (Post-Tax)', x=['Current Setup', 'Optimized Setup'], y=[m_cur_t[3], m_opt_t[3]], marker_color='#66BB6A')
-    ])
-    fig_capex.update_layout(barmode='group', height=350, yaxis_title="Total Capital ($)", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    st.plotly_chart(fig_capex, use_container_width=True)
+    s_cur_0, s_opt_0 = get_metrics(35, batt_mw, 0), get_metrics(ideal_m, ideal_b, 0)
+    s_cur_t, s_opt_t = get_metrics(35, batt_mw, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
 
     st.markdown("---")
     st.subheader("📋 Historical Performance Evolution")
@@ -196,10 +202,10 @@ with tab2:
             st.write(f"* ⚡ Grid: `${met[2]:,.0f}`")
 
     ca, cb, cc, cd = st.columns(4)
-    draw_card(ca, "1. Pre-Opt", m_cur_0, 35, batt_mw, "Current/No Tax")
-    draw_card(cb, "2. Opt (Pre-Tax)", m_opt_0, ideal_m, ideal_b, "Ideal/No Tax")
-    draw_card(cc, "3. Current (Post-Tax)", m_cur_t, 35, batt_mw, "Current/Full Tax")
-    draw_card(cd, "4. Opt (Post-Tax)", m_opt_t, ideal_m, ideal_b, "Ideal/Full Tax")
+    draw_card(ca, "1. Pre-Opt", s_cur_0, 35, batt_mw, "Current/No Tax")
+    draw_card(cb, "2. Opt (Pre-Tax)", s_opt_0, ideal_m, ideal_b, "Ideal/No Tax")
+    draw_card(cc, "3. Current (Post-Tax)", s_cur_t, 35, batt_mw, "Current/Full Tax")
+    draw_card(cd, "4. Opt (Post-Tax)", s_opt_t, ideal_m, ideal_b, "Ideal/Full Tax")
 
 with tab3:
     st.subheader("📈 Long-Term Volatility")
@@ -207,10 +213,3 @@ with tab3:
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
     st.markdown("#### 2. ERCOT System-Wide Average")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
-    st.markdown("---")
-    st.subheader("🧐 Strategic Trend Analysis")
-    st.write("""
-    * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub'.
-    * **The 2021 Uri Impact:** System-wide assets were more exposed to scarcity.
-    * **Solar Saturation:** Growth in the low price bracket is system-wide.
-    """)
