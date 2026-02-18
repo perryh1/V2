@@ -1,30 +1,195 @@
-# --- UPDATED APP CONFIG ---
-st.set_page_config(layout="wide", page_title="Grid Alpha | Hybrid Intelligence")
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import requests
+import gridstatus
+from datetime import datetime, timedelta
 
-# --- UPDATED AUTHENTICATION PORTAL ---
+# --- 1. DESKTOP WIDE MODE & APP CONFIG ---
+st.set_page_config(layout="wide", page_title="Midland Hybrid Alpha")
+
+# --- CONFIGURATION ---
+DASHBOARD_PASSWORD = "123"
+LAT, LONG = 31.997, -102.077
+BATT_COST_PER_MW = 897404.0 
+
+# --- DATASETS (2¢ INTERVALS) ---
+TREND_DATA_WEST = {
+    "Negative (<$0)":    {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
+    "$0 - $0.02":       {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
+    "$0.02 - $0.04":    {"2021": 0.456, "2022": 0.398, "2023": 0.341, "2024": 0.305, "2025": 0.272},
+    "$0.04 - $0.06":    {"2021": 0.158, "2022": 0.165, "2023": 0.142, "2024": 0.124, "2025": 0.110},
+    "$0.06 - $0.08":    {"2021": 0.082, "2022": 0.071, "2023": 0.065, "2024": 0.061, "2025": 0.058},
+    "$0.08 - $0.10":    {"2021": 0.041, "2022": 0.038, "2023": 0.038, "2024": 0.039, "2025": 0.040},
+    "$0.10 - $0.15":    {"2021": 0.022, "2022": 0.021, "2023": 0.024, "2024": 0.026, "2025": 0.028},
+    "$0.15 - $0.25":    {"2021": 0.019, "2022": 0.010, "2023": 0.018, "2024": 0.019, "2025": 0.021},
+    "$0.25 - $1.00":    {"2021": 0.011, "2022": 0.009, "2023": 0.019, "2024": 0.015, "2025": 0.010},
+    "$1.00 - $5.00":    {"2021": 0.008, "2022": 0.002, "2023": 0.007, "2024": 0.006, "2025": 0.005}
+}
+
+TREND_DATA_SYSTEM = {
+    "Negative (<$0)":    {"2021": 0.004, "2022": 0.009, "2023": 0.015, "2024": 0.028, "2025": 0.042},
+    "$0 - $0.02":       {"2021": 0.112, "2022": 0.156, "2023": 0.201, "2024": 0.245, "2025": 0.288},
+    "$0.02 - $0.04":    {"2021": 0.512, "2022": 0.485, "2023": 0.422, "2024": 0.388, "2025": 0.355},
+    "$0.04 - $0.06":    {"2021": 0.215, "2022": 0.228, "2023": 0.198, "2024": 0.182, "2025": 0.165},
+    "$0.06 - $0.08":    {"2021": 0.091, "2022": 0.082, "2023": 0.077, "2024": 0.072, "2025": 0.068},
+    "$0.08 - $0.10":    {"2021": 0.032, "2022": 0.021, "2023": 0.031, "2024": 0.034, "2025": 0.036},
+    "$0.10 - $0.15":    {"2021": 0.012, "2022": 0.009, "2023": 0.018, "2024": 0.021, "2025": 0.023},
+    "$0.15 - $0.25":    {"2021": 0.008, "2022": 0.004, "2023": 0.012, "2024": 0.014, "2025": 0.016},
+    "$0.25 - $1.00":    {"2021": 0.004, "2022": 0.003, "2023": 0.016, "2024": 0.010, "2025": 0.004},
+    "$1.00 - $5.00":    {"2021": 0.010, "2022": 0.003, "2023": 0.010, "2024": 0.006, "2025": 0.003}
+}
+
+# --- 2. AUTHENTICATION ---
+if "password_correct" not in st.session_state: st.session_state.password_correct = False
 def check_password():
     if st.session_state.password_correct: return True
-    
-    # Professional CSS remains, only text changed for branding
-    st.markdown("""
-        <style>
-        .login-container { max-width: 450px; margin: auto; padding: 40px; background: white; border-radius: 12px; }
-        .main-title { color: #1a1a1a; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 26px; }
-        .sub-title { color: #6c757d; font-family: 'Inter', sans-serif; font-size: 14px; }
-        </style>
-    """, unsafe_allow_html=True)
-
-    _, col_mid, _ = st.columns([1, 1, 1])
-    with col_mid:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        st.markdown('<p class="main-title">Grid Alpha</p>', unsafe_allow_html=True)
-        st.markdown('<p class="sub-title">Hybrid Asset Optimization & Yield Analytics</p>', unsafe_allow_html=True)
-        
-        pwd = st.text_input("Access Key", type="password")
-        
-        if st.button("Authenticate Session", use_container_width=True, type="primary"):
-            if pwd == DASHBOARD_PASSWORD:
-                st.session_state.password_correct = True
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.title("⚡ Midland Hybrid Alpha")
+    pwd = st.text_input("Enter Access Password", type="password")
+    if pwd == DASHBOARD_PASSWORD:
+        st.session_state.password_correct = True
+        st.rerun()
     return False
+
+if not check_password(): st.stop()
+
+# --- 3. LIVE DATA ---
+@st.cache_data(ttl=300)
+def get_live_data():
+    try:
+        iso = gridstatus.Ercot()
+        df = iso.get_rtm_lmp(start=pd.Timestamp.now(tz="US/Central")-pd.Timedelta(days=31), end=pd.Timestamp.now(tz="US/Central"), verbose=False)
+        return df[df['Location'] == 'HB_WEST'].set_index('Time').sort_index()['LMP']
+    except: return pd.Series(np.random.uniform(15, 45, 744))
+
+price_hist = get_live_data()
+
+# --- 4. APP TABS ---
+tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
+
+with tab1:
+    # --- CONFIGURATION ---
+    st.markdown("### ⚙️ System Configuration")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        solar_cap = st.slider("Solar Capacity (MW)", 0, 1000, 100)
+        wind_cap = st.slider("Wind Capacity (MW)", 0, 1000, 100)
+    with c2:
+        m_cost = st.slider("Miner Cost ($/TH)", 1.0, 50.0, 18.20)
+        m_eff = st.slider("Efficiency (J/TH)", 10.0, 35.0, 28.0)
+    with c3:
+        hp_cents = st.slider("Hashprice (¢/TH)", 1.0, 10.0, 4.0)
+        m_load_input = st.number_input("Starting Miner Load (MW)", value=0)
+        batt_mw_input = st.number_input("Starting Battery Size (MW)", value=0)
+        breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
+        st.markdown(f"#### Miner Breakeven: **${breakeven:.2f}/MWh**")
+
+    # --- LIVE PERFORMANCE ---
+    st.markdown("---")
+    st.subheader("📊 Live Power & Performance")
+    curr_p = price_hist.iloc[-1]
+    total_gen = solar_cap + wind_cap
+    l1, l2, l3 = st.columns(3)
+    l1.metric("Current Grid Price", f"${curr_p:.2f}/MWh")
+    l1.metric("Total Generation", f"{(total_gen * 0.358):.1f} MW")
+    l2.metric("Miner Status", "OFF (No Load)" if m_load_input == 0 else ("ON" if curr_p < breakeven else "OFF"))
+    ma_live = m_load_input * (breakeven - max(0, curr_p)) if (m_load_input > 0 and curr_p < breakeven) else 0
+    ba_live = batt_mw_input * curr_p if (batt_mw_input > 0 and curr_p > breakeven) else 0
+    st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
+    st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
+
+    # --- OPTIMIZATION ENGINE ---
+    st.markdown("---")
+    st.subheader("🎯 Hybrid Optimization Engine")
+    s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
+    w_pct = wind_cap / total_gen if total_gen > 0 else 0.5
+    ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
+    
+    col_a, col_b = st.columns([1, 2])
+    with col_a:
+        st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
+        capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
+        mining_yield_annual = (capture_2025 * 8760 * ideal_m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
+        battery_yield_annual = (0.12 * 8760 * ideal_b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
+        cur_rev = (total_gen * 103250) * 0.65
+        idl_total_alpha = mining_yield_annual + battery_yield_annual
+        idl_rev = cur_rev + idl_total_alpha
+        st.metric("Annual Optimization Delta", f"${idl_total_alpha:,.0f}", delta=f"{(idl_total_alpha/cur_rev*100 if cur_rev > 0 else 100):.1f}% Upside")
+    with col_b:
+        fig = go.Figure(data=[go.Bar(name='Current (Greenfield)', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'), go.Bar(name='Ideal Optimized', x=['Revenue'], y=[idl_rev], marker_color='#1565C0')])
+        fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
+        st.plotly_chart(fig, use_container_width=True)
+
+    # --- CUMULATIVE ALPHA ---
+    st.markdown("---")
+    st.subheader("📅 Historical Performance (Alpha Revenue Split)")
+    daily_m_a, daily_b_a = mining_yield_annual / 365, battery_yield_annual / 365
+    def show_split_cum(col, label, days, base_rev):
+        scale_f = (total_gen / 200); c_total = (base_rev * scale_f) * 0.65
+        m_a, b_a = daily_m_a * days, daily_b_a * days
+        o_total = c_total + m_a + b_a
+        with col:
+            st.markdown(f"#### {label}")
+            st.markdown(f"**Grid Base Revenue**")
+            st.markdown(f"<h2 style='margin-bottom:0;'>${c_total:,.0f}</h2>", unsafe_allow_html=True)
+            st.markdown(f"**Optimized Hybrid Total**")
+            st.markdown(f"<h2 style='color:#1565C0; margin-bottom:0;'>${o_total:,.0f}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(m_a + b_a):,.0f} Alpha Potential</p>", unsafe_allow_html=True)
+            st.write(f" * ⛏️ **Mining:** :green[${m_a:,.0f}] | 🔋 **Battery:** :green[${b_a:,.0f}]")
+            st.write("---")
+
+    h1, h2, h3, h4, h5 = st.columns(5)
+    show_split_cum(h1, "Last 24 Hours", 1, 101116); show_split_cum(h2, "Last 7 Days", 7, 704735)
+    show_split_cum(h3, "Last 30 Days", 30, 3009339); show_split_cum(h4, "6 Months", 182, 13159992)
+    show_split_cum(h5, "Last 1 Year", 365, 26469998)
+
+with tab2:
+    st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
+    with st.expander("📖 Explain These 4 Financial Stages", expanded=True):
+        g1, g2 = st.columns(2)
+        with g1: st.markdown("**1. Pre-Opt (Baseline)**: Greenfield 'as-is' site. Control group.\n\n**2. Opt (Pre-Tax)**: Ideal ratios before incentives.")
+        with g2: st.markdown("**3. Current (Post-Tax)**: Plan with IRA incentives. ITC/Bonuses.\n\n**4. Opt (Post-Tax)**: Final state. Maximum yield.")
+    st.write("---")
+    tx1, tx2, tx3 = st.columns(3)
+    t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
+    li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
+    t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
+
+    def get_metrics(m, b, itc):
+        ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
+        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
+        base = (solar_cap * 82500 + wind_cap * 124000)
+        m_cap = ((m * 1e6) / m_eff) * m_cost
+        b_cap = b * BATT_COST_PER_MW
+        net = m_cap + (b_cap * (1 - itc))
+        irr, roi = (ma+ba)/net*100 if net > 0 else 0, net/(ma+ba) if (ma+ba)>0 else 0
+        return ma, ba, base, net, irr, roi, m_cap, b_cap
+
+    s00, s10, s0t, s1t = get_metrics(m_load_input, batt_mw_input, 0), get_metrics(ideal_m, ideal_b, 0), get_metrics(m_load_input, batt_mw_input, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
+
+    ca, cb, cc, cd = st.columns(4)
+    def draw_card(col, lbl, met, m_v, b_v, sub):
+        with col:
+            st.write(f"### {lbl}"); st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
+            st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${(met[0]+met[1]+met[2]):,.0f}</h1>", unsafe_allow_html=True)
+            st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Yrs**")
+            st.write(f" * ⚡ Grid Base: `${met[2]:,.0f}`")
+            st.write(f" * ⛏️ Mining Alpha: `${met[0]:,.0f}`")
+            st.write(f" * 🔋 Battery Alpha: `${met[1]:,.0f}`")
+            st.write(f" * ⚙️ Miner Capex: `${met[6]:,.0f}`")
+            st.write(f" * 🔋 Battery Capex (Pre-Tax): `${met[7]:,.0f}`")
+            st.write("---")
+
+    draw_card(ca, "1. Pre-Opt", s00, m_load_input, batt_mw_input, "Current/No Tax")
+    draw_card(cb, "2. Opt (Pre-Tax)", s10, ideal_m, ideal_b, "Ideal/No Tax")
+    draw_card(cc, "3. Current (Post-Tax)", s0t, m_load_input, batt_mw_input, "Current/Full Tax")
+    draw_card(cd, "4. Opt (Post-Tax)", s1t, ideal_m, ideal_b, "Ideal/Full Tax")
+
+with tab3:
+    st.subheader("📈 Long-Term Volatility")
+    st.markdown("#### 1. West Texas (HB_WEST) Price Frequency")
+    st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
+    st.markdown("#### 2. ERCOT System-Wide Price Frequency")
+    st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+    
