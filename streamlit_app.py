@@ -11,7 +11,7 @@ DASHBOARD_PASSWORD = "123"
 LAT, LONG = 31.997, -102.077
 BATT_COST_PER_MW = 897404.0 
 
-# --- DATASETS (HB_WEST & SYSTEM-WIDE) ---
+# --- 5-YEAR HISTORICAL FREQUENCY DATASET (HB_WEST) ---
 TREND_DATA_WEST = {
     "Negative (<$0)":    {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02":       {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -76,34 +76,36 @@ with tab1:
     capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
     
     def get_simple_rev(m, b):
-        # Revised Logic: Battery supports miners above breakeven
+        # Operational Pivot: Miners for low price, Battery for high price
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-        # Battery Alpha now includes hours where price > breakeven
-        ba = (0.05 * 8760 * b * (breakeven + 20)) * (1.0 + (s_pct * 0.25)) 
+        # High-Price brackets (> $0.06/kWh approx) for Battery Supply
+        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         return ma + ba
 
     cur_rev, idl_rev = get_simple_rev(35, batt_mw), get_simple_rev(ideal_m, ideal_b)
     st.metric("Annual Optimization Delta", f"${(idl_rev - cur_rev):,.0f}", delta=f"{((idl_rev - cur_rev)/cur_rev*100):.1f}% Upside")
 
-    # --- LIVE POWER & PERFORMANCE (DISCHARGE UPDATED) ---
+    # --- LIVE POWER & PERFORMANCE (PIVOT LOGIC) ---
     st.markdown("---")
     st.subheader("📊 Live Power & Performance")
     curr_p = price_hist.iloc[-1]
     
-    # Logic Update: Battery Discharges if price > breakeven
-    is_discharging = curr_p > breakeven
+    # Pivot Trigger: Price vs Breakeven
+    over_breakeven = curr_p > breakeven
     
     l1, l2, l3 = st.columns(3)
     l1.metric("Current Grid Price", f"${curr_p:.2f}/MWh")
-    l2.metric("Miner Status", "ON (Hedged)" if is_discharging else ("ON (Grid)" if curr_p < breakeven else "OFF"))
-    l3.metric("Battery Status", "DISCHARGING" if is_discharging else ("CHARGING" if curr_p < 0 else "IDLE"))
+    l2.metric("Miner Status", "OFF (Market Peak)" if over_breakeven else "ON (Mining Alpha)")
+    l3.metric("Battery Status", "SUPPLYING GRID" if over_breakeven else ("CHARGING" if curr_p < 0 else "IDLE"))
 
-    ma_live = 35 * (breakeven - max(0, curr_p)) if curr_p < breakeven else (35 * 5.0 if is_discharging else 0)
-    ba_live = batt_mw * curr_p if is_discharging else 0
+    # Earnings logic: If price is low, miners earn. If price is high, battery earns.
+    ma_live = 35 * (breakeven - max(0, curr_p)) if not over_breakeven else 0
+    ba_live = batt_mw * curr_p if over_breakeven else (batt_mw * abs(curr_p) if curr_p < 0 else 0)
+    
     st.metric("Mining Alpha (Hourly)", f"${ma_live:,.2f}/hr")
     st.metric("Battery Alpha (Hourly)", f"${ba_live:,.2f}/hr")
 
-    # --- TAX STRATEGY & EVOLUTION CARDS (MAINTAINED) ---
+    # --- TAX STRATEGY & EVOLUTION CARDS ---
     st.markdown("---")
     st.subheader("🏛️ Commercial Tax Strategy")
     tx1, tx2, tx3 = st.columns(3)
@@ -115,8 +117,8 @@ with tab1:
     st.subheader("📋 Historical Performance Evolution")
     def get_metrics(m, b, itc):
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-        # Expanded Battery Alpha to reflect new lower-threshold discharge
-        ba = (0.08 * 8760 * b * (breakeven + 15)) * (1.0 + (s_pct * 0.25))
+        # Battery Supply revenue focused on hours > breakeven
+        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         base = (solar_cap * 82500 + wind_cap * 124000)
         net = ((m*1e6)/m_eff)*m_cost + (b*BATT_COST_PER_MW*(1-itc))
         return ma, ba, base, net, (ma+ba)/net*100 if net > 0 else 0
@@ -137,6 +139,5 @@ with tab1:
     with c_d: draw("4. Opt (Post-Tax)", s4, ideal_m, ideal_b, "Ideal/Full Tax")
 
 with tab2:
-    st.subheader("📈 5-Year Price Frequency Dataset")
-    st.write("**West Texas (HB_WEST)**")
+    st.subheader("📈 5-Year Price Frequency (HB_WEST)")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
