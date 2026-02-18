@@ -11,7 +11,7 @@ DASHBOARD_PASSWORD = "123"
 LAT, LONG = 31.997, -102.077
 BATT_COST_PER_MW = 897404.0 
 
-# --- DATASETS (2¢ INTERVALS RESTORED) ---
+# --- DATASETS (2¢ INTERVALS) ---
 TREND_DATA_WEST = {
     "Negative (<$0)":    {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02":       {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -86,7 +86,7 @@ with tab1:
     ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
     st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
     
-    # --- LIVE PERFORMANCE ---
+    # --- LIVE POWER & PERFORMANCE ---
     st.markdown("---")
     st.subheader("📊 Live Power & Performance")
     curr_p = price_hist.iloc[-1]
@@ -101,25 +101,25 @@ with tab1:
     st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
     st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
 
-    # --- HISTORICAL PERFORMANCE (CUMULATIVE ALPHA) ---
+    # --- HISTORICAL PERFORMANCE (RESTORED SECTION) ---
     st.markdown("---")
     st.subheader("📅 Historical Performance (Cumulative Alpha)")
     
-    def render_historical(label, site_rev, alpha, grid, mine, batt):
+    def show_cum(label, total, alpha, grid, mine, batt):
         st.markdown(f"#### {label}")
         st.markdown(f"**Total Site Revenue**")
-        st.markdown(f"<h1 style='margin-bottom:0;'>${site_rev:,.0f}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1>${total:,.0f}</h1>", unsafe_allow_html=True)
         st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
-        st.markdown(f"<li> ⚡ **Grid (Base):** <span style='color:#28a745;'>${grid:,.0f}</span></li>", unsafe_allow_html=True)
-        st.markdown(f"<li> ⛏️ **Mining Alpha:** <span style='color:#28a745;'>${mine:,.0f}</span></li>", unsafe_allow_html=True)
-        st.markdown(f"<li> 🔋 **Battery Alpha:** <span style='color:#28a745;'>${batt:,.0f}</span></li>", unsafe_allow_html=True)
-        st.write("")
+        st.write(f" * ⚡ **Grid (Base):** :green[${grid:,.0f}]")
+        st.write(f" * ⛏️ **Mining Alpha:** :green[${mine:,.0f}]")
+        st.write(f" * 🔋 **Battery Alpha:** :green[${batt:,.0f}]")
+        st.write("---")
 
-    render_historical("Last 24 Hours", 101116, 47527, 53589, 47527, 0)
-    render_historical("Last 7 Days", 704735, 335624, 369111, 335624, 0)
-    render_historical("Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
-    render_historical("Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
-    render_historical("Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
+    show_cum("Last 24 Hours", 101116, 47527, 53589, 47527, 0)
+    show_cum("Last 7 Days", 704735, 335624, 369111, 335624, 0)
+    show_cum("Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
+    show_cum("Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
+    show_cum("Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
     # --- TAX STRATEGY ---
     st.markdown("---")
@@ -129,9 +129,9 @@ with tab1:
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
 
-    # --- CORE REVENUE ENGINE ---
+    # --- REVENUE ENGINE ---
     capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
-    def get_stage_metrics(m, b, itc_r):
+    def get_metrics(m, b, itc_r):
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
         ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         base = (solar_cap * 82500 + wind_cap * 124000)
@@ -142,8 +142,7 @@ with tab1:
         roi = net / (ma + ba) if (ma + ba) > 0 else 0
         return ma, ba, base, net, irr, roi, m_cap, b_cap
 
-    s_cur = get_stage_metrics(35, batt_mw, t_rate)
-    s_opt = get_stage_metrics(ideal_m, ideal_b, t_rate)
+    s_cur, s_opt = get_metrics(35, batt_mw, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
 
     st.markdown("---")
     st.subheader("💰 Post-Tax Financial Comparison")
@@ -172,8 +171,8 @@ with tab1:
         st.write("---")
 
     c_a, c_b, c_c, c_d = st.columns(4)
-    with c_a: draw_card("1. Pre-Opt", get_stage_metrics(35, batt_mw, 0), 35, batt_mw, "Current/No Tax")
-    with c_b: draw_card("2. Opt (Pre-Tax)", get_stage_metrics(ideal_m, ideal_b, 0), ideal_m, ideal_b, "Ideal/No Tax")
+    with c_a: draw_card("1. Pre-Opt", get_metrics(35, batt_mw, 0), 35, batt_mw, "Current/No Tax")
+    with c_b: draw_card("2. Opt (Pre-Tax)", get_metrics(ideal_m, ideal_b, 0), ideal_m, ideal_b, "Ideal/No Tax")
     with c_c: draw_card("3. Current (Post-Tax)", s_cur, 35, batt_mw, "Current/Full Tax")
     with c_d: draw_card("4. Opt (Post-Tax)", s_opt, ideal_m, ideal_b, "Ideal/Full Tax")
 
