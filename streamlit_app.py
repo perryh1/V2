@@ -114,11 +114,10 @@ with tab1:
         st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
         capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
         
-        # Revenue Split Logic
         mining_yield_annual = (capture_2025 * 8760 * ideal_m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
         battery_yield_annual = (0.12 * 8760 * ideal_b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         
-        cur_rev = (total_gen * 103250) * 0.65 # Simple base estimate
+        cur_rev = (total_gen * 103250) * 0.65
         idl_total_alpha = mining_yield_annual + battery_yield_annual
         idl_rev = cur_rev + idl_total_alpha
         
@@ -166,15 +165,37 @@ with tab1:
     show_split_cum(h5, "1 Year", 365, 26469998)
 
 with tab2:
+    # 5. FULL TAX STRATEGY DEFINITIONS RESTORED
     st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
-    with st.expander("📖 Explain These 4 Stages"):
-        st.markdown("""
-        **1. Pre-Opt (Baseline):** Greenfield site (0MW Hybrid).
-        **2. Opt (Pre-Tax):** Ideal sizing before tax incentives.
-        **3. Current (Post-Tax):** Current site with ITC/Bonuses applied.
-        **4. Opt (Post-Tax):** Ideal Sizing + Full Tax Strategy.
-        """)
+    
+    with st.expander("📖 Explain These 4 Financial Stages", expanded=True):
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            st.markdown("""
+            **1. Pre-Opt (Baseline)**
+            * **Setup:** This is the "as-is" starting point for the project. Uses the exact Miner MW and Battery MW you have currently entered in the sliders.
+            * **Taxes:** Assumes zero tax credits or government incentives.
+            * **Purpose:** It serves as the "Control" group to show the raw performance of the site without any optimization or financial engineering.
 
+            **2. Opt (Pre-Tax)**
+            * **Setup:** This stage shows the impact of the Hybrid Optimization Engine. It automatically adjusts the Miner and Battery sizes to the "Ideal Sizing" calculated by the app's internal logic.
+            * **Taxes:** Still assumes zero tax incentives.
+            * **Purpose:** It isolates the value of Capital Allocation. It proves how much more money you can make simply by changing the ratio of hardware to better match your solar and wind "fuel" source.
+            """)
+        with col_g2:
+            st.markdown("""
+            **3. Current (Post-Tax)**
+            * **Setup:** This stage introduces the Inflation Reduction Act (IRA) incentives to your original plan. It reverts to your original Miner MW and Battery MW slider inputs.
+            * **Taxes:** Applies the Investment Tax Credit (ITC) and any selected bonuses (Domestic Content, Underserved Communities) to the battery portion of the project.
+            * **Purpose:** It shows how government "coupons" improve your IRR and ROI without changing a single piece of hardware on the site.
+
+            **4. Opt (Post-Tax) — The "Alpha" State**
+            * **Setup:** This is the final, fully optimized state of the project. It uses the Ideal Sizing recommended by the Optimization Engine.
+            * **Taxes:** Applies the full Tax Strategy (ITC + Bonuses) to the project's net cost.
+            * **Purpose:** This represents the maximum potential of the asset. It combines the physical efficiency of the hardware with the financial efficiency of the tax code to provide the fastest possible payback period.
+            """)
+
+    st.write("---")
     tx1, tx2, tx3 = st.columns(3)
     t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
