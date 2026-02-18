@@ -13,113 +13,75 @@ DASHBOARD_PASSWORD = "123"
 BATT_COST_PER_MW = 897404.0 
 CORP_TAX_RATE = 0.21 
 
-# --- 2. THE "CENTRAL HUB" AUTHENTICATION PORTAL ---
+# --- 2. UNIFIED AUTHENTICATION PORTAL WITH EXECUTIVE BRIEF ---
 if "password_correct" not in st.session_state: 
     st.session_state.password_correct = False
 
 def check_password():
     if st.session_state.password_correct: return True
     
-    # Using Grid for perfect 2-axis centering
     st.markdown("""
         <style>
-        .stApp {
-            background-color: #0e1117;
-            display: grid;
-            place-items: center;
-            min-height: 100vh;
-        }
-        
-        .auth-container {
-            width: 95%;
-            max-width: 900px;
-            display: flex;
-            flex-direction: row;
-            background: #161b22;
-            border-radius: 12px;
-            border: 1px solid #30363d;
-            overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-        }
-        
-        .auth-branding {
+        .stApp { background-color: #0e1117; }
+        .login-sidebar {
             background-color: #262730;
-            padding: 60px 40px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+            height: 100vh;
+            padding: 40px 20px;
+            color: white;
             border-right: 1px solid #3d3f4b;
         }
-        
-        .auth-form {
-            flex: 1.5;
-            padding: 60px;
-            background-color: #161b22;
-        }
-        
-        .brand-text { color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 42px; margin: 0; }
-        .version-text { color: #808495; font-size: 14px; margin-top: 5px; }
-        
-        .auth-header { color: #ffffff; font-weight: 700; font-size: 28px; margin-bottom: 8px; }
-        .auth-sub { color: #8b949e; font-size: 15px; margin-bottom: 30px; }
-        
-        .brief-section { color: #c9d1d9; font-size: 14px; line-height: 1.7; margin-bottom: 35px; border-left: 3px solid #0052FF; padding-left: 20px; }
-        .brief-title { color: #58a6ff; font-weight: 600; font-size: 12px; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1.2px; }
-
-        /* Mobile Response: Stacks vertically */
-        @media (max-width: 800px) {
-            .auth-container { flex-direction: column; margin: 20px; }
-            .auth-branding { padding: 40px; border-right: none; border-bottom: 1px solid #3d3f4b; }
-            .auth-form { padding: 40px 30px; }
-        }
+        .login-main { padding: 60px 100px; display: flex; flex-direction: column; justify-content: center; }
+        .brand-text { color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 32px; margin-bottom: 5px; }
+        .version-text { color: #808495; font-size: 14px; margin-bottom: 40px; }
+        .auth-card { background: #161b22; padding: 40px; border-radius: 8px; border: 1px solid #30363d; max-width: 550px; }
+        .auth-header { color: #ffffff; font-weight: 700; font-size: 24px; margin-bottom: 8px; }
+        .auth-sub { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
+        .brief-section { color: #c9d1d9; font-size: 14px; line-height: 1.6; margin-bottom: 30px; border-left: 2px solid #0052FF; padding-left: 20px; }
+        .brief-title { color: #58a6ff; font-weight: 600; font-size: 13px; text-transform: uppercase; margin-bottom: 10px; }
         </style>
     """, unsafe_allow_html=True)
 
-    # Main wrapper
-    st.markdown('<div class="auth-container">', unsafe_allow_html=True)
+    col_side, col_main = st.columns([1, 3])
+    with col_side:
+        st.markdown('<div class="login-sidebar"><p class="brand-text">Hybrid OS</p><p class="version-text">v13.0 Deployment</p></div>', unsafe_allow_html=True)
     
-    # Left Side: Branding
-    st.markdown('''
-        <div class="auth-branding">
-            <p class="brand-text">Hybrid OS</p>
-            <p class="version-text">v13.4 Deployment</p>
+    with col_main:
+        st.markdown('<div class="login-main"><div class="auth-card">', unsafe_allow_html=True)
+        st.markdown('<p class="auth-header">Executive Access</p>', unsafe_allow_html=True)
+        st.markdown('<p class="auth-sub">Grid Intelligence & Asset Optimization Portal</p>', unsafe_allow_html=True)
+        
+        # --- EXECUTIVE BRIEF SECTION ---
+        st.markdown('<p class="brief-title">Platform Overview</p>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="brief-section">
+            Hybrid OS functions as the <b>economic brain</b> for co-located energy assets. 
+            By integrating live ERCOT market telemetry with high-efficiency hardware modeling, 
+            the platform identifies the "Strategic Pivot" between grid exports and digital load.<br><br>
+            <b>Core Functionality:</b><br>
+            • <b>Dynamic Arbitrage:</b> Automatically identifies windows where mining at X J/TH 
+            outperforms spot market exports.<br>
+            • <b>Yield Optimization:</b> Calculates the ideal BESS/Compute ratio based on local 
+            volatility spreads and generation sources.<br>
+            • <b>Financial Engineering:</b> Integrates ITC and MACRS tax informations to provide 
+            IRR and Payback projections.
         </div>
-    ''', unsafe_allow_html=True)
-    
-    # Right Side: Form & Brief
-    st.markdown('<div class="auth-form">', unsafe_allow_html=True)
-    st.markdown('<p class="auth-header">Executive Access</p>', unsafe_allow_html=True)
-    st.markdown('<p class="auth-sub">Grid Intelligence & Asset Optimization Portal</p>', unsafe_allow_html=True)
-    
-    st.markdown('<p class="brief-title">Strategic Value Proposition</p>', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="brief-section">
-        • <b>Dynamic Arbitrage:</b> Identifies high-alpha windows where compute load 
-        at 15 J/TH outperforms spot market exports.<br><br>
-        • <b>Yield Optimization:</b> Mathematically ideal BESS-to-Compute ratios 
-        calibrated to specific generation sources.<br><br>
-        • <b>Financial Engineering:</b> Integrated ITC and MACRS tax shields for 
-        institutional-grade projections.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    pwd = st.text_input("Institutional Access Key", type="password")
-    if st.button("Authenticate Session", use_container_width=True, type="primary"):
-        if pwd == DASHBOARD_PASSWORD:
-            st.session_state.password_correct = True
-            st.rerun()
-        else:
-            st.error("Authentication Failed")
-            
-    st.markdown('</div></div>', unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        
+        pwd = st.text_input("Institutional Access Key", type="password")
+        if st.button("Authenticate Session", use_container_width=True, type="primary"):
+            if pwd == DASHBOARD_PASSWORD:
+                st.session_state.password_correct = True
+                st.rerun()
+            else:
+                st.error("Authentication Failed")
+        st.markdown('</div></div>', unsafe_allow_html=True)
     return False
 
 if not check_password(): st.stop()
 
 # --- 3. PERSISTENT SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v13.4 Deployment")
+st.sidebar.caption("v13.0 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### ⚡ Generation Mix")
@@ -137,7 +99,7 @@ st.sidebar.markdown("### 🏛️ Starting Hardware")
 m_load_in = st.sidebar.number_input("Starting Miner Load (MW)", value=0)
 b_mw_in = st.sidebar.number_input("Starting Battery Size (MW)", value=0)
 
-# --- 4. DATA LOGIC (UNCHANGED) ---
+# --- 4. DATASETS ---
 TREND_DATA_WEST = {
     "Negative (<$0)": {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02": {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -151,6 +113,19 @@ TREND_DATA_WEST = {
     "$1.00 - $5.00": {"2021": 0.008, "2022": 0.002, "2023": 0.007, "2024": 0.006, "2025": 0.005}
 }
 
+TREND_DATA_SYSTEM = {
+    "Negative (<$0)": {"2021": 0.004, "2022": 0.009, "2023": 0.015, "2024": 0.028, "2025": 0.042},
+    "$0 - $0.02": {"2021": 0.112, "2022": 0.156, "2023": 0.201, "2024": 0.245, "2025": 0.288},
+    "$0.02 - $0.04": {"2021": 0.512, "2022": 0.485, "2023": 0.422, "2024": 0.388, "2025": 0.355},
+    "$0.04 - $0.06": {"2021": 0.215, "2022": 0.228, "2023": 0.198, "2024": 0.182, "2025": 0.165},
+    "$0.06 - $0.08": {"2021": 0.091, "2022": 0.082, "2023": 0.077, "2024": 0.072, "2025": 0.068},
+    "$0.08 - $0.10": {"2021": 0.032, "2022": 0.021, "2023": 0.031, "2024": 0.034, "2025": 0.036},
+    "$0.10 - $0.15": {"2021": 0.012, "2022": 0.009, "2023": 0.018, "2024": 0.021, "2023": 0.023},
+    "$0.15 - $0.25": {"2021": 0.008, "2022": 0.004, "2023": 0.012, "2024": 0.014, "2025": 0.016},
+    "$0.25 - $1.00": {"2021": 0.004, "2022": 0.003, "2023": 0.016, "2024": 0.010, "2025": 0.004},
+    "$1.00 - $5.00": {"2021": 0.010, "2022": 0.003, "2023": 0.010, "2024": 0.006, "2025": 0.003}
+}
+
 @st.cache_data(ttl=300)
 def get_live_data():
     try:
@@ -162,7 +137,7 @@ def get_live_data():
 price_hist = get_live_data()
 breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
 
-# --- 5. DASHBOARD MAIN INTERFACE ---
+# --- 5. DASHBOARD INTERFACE ---
 t_evolution, t_tax, t_volatility = st.tabs(["📊 Performance Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility"])
 
 with t_evolution:
@@ -261,6 +236,21 @@ with t_tax:
 
 with t_volatility:
     st.subheader("📈 Institutional Volatility Analysis")
+    st.write("The volatility of the ERCOT grid is undergoing a significant structural shift, characterized by a widening spread between the upper (scarcity) and lower (excess/negative) pricing bounds.")
+    
+    # 1. Lower Bound
+    st.markdown("#### 1. The Lower Bound: Exponential Growth of Negative Pricing")
+    st.write("The lower pricing bound is increasingly defined by 'excess supply' events, where the grid has more power than it can consume or export.")
+    st.write("* **Solar Saturation:** As solar capacity grows, the frequency of prices in the $0 - $0.02/kWh bracket has transitioned from a localized West Texas issue to a system-wide phenomenon.")
+    st.write("* **HB_WEST Dominance:** West Texas remains the 'Alpha Hub' for negative pricing. By 2025, negative price frequency in the West is projected to reach **12.1%**.")
+    
+    # 2. Upper Bound
+    st.markdown("#### 2. The Upper Bound: Scarcity and Peak Pricing")
+    st.write("The upper bound is becoming more volatile due to 'scarcity' events when renewable generation drops off just as demand peaks.")
+    st.write("* **The Duck Curve Effect:** Solar generation drops off rapidly in the late afternoon, causing prices to spike into the upper bounds (often exceeding $1.00 - $5.00/kWh).")
+    st.write("* **Battery Dominance:** This volatility at the top is the primary revenue driver for the **Battery Alpha**, as the battery only discharges during scarcity windows.")
+
+    st.markdown("---")
     v_c1, v_c2 = st.columns(2)
     with v_c1:
         st.markdown("#### West Zone (HB_WEST) Distribution")
