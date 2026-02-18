@@ -142,11 +142,13 @@ with tab1:
         st.write(f" * 🔋 **Battery Alpha:** :green[${batt:,.0f}]")
         st.write("---")
 
-    show_cum("Last 24 Hours", 101116, 47527, 53589, 47527, 0)
-    show_cum("Last 7 Days", 704735, 335624, 369111, 335624, 0)
-    show_cum("Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
-    show_cum("Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
-    show_cum("Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
+ # Create 5 columns to force horizontal layout on desktop
+    h1, h2, h3, h4, h5 = st.columns(5)
+    show_cum(h1, "Last 24 Hours", 101116, 47527, 53589, 47527, 0)
+    show_cum(h2, "Last 7 Days", 704735, 335624, 369111, 335624, 0)
+    show_cum(h3, "Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
+    show_cum(h4, "Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
+    show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
     # 5. TAX STRATEGY
     st.markdown("---")
