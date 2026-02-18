@@ -13,7 +13,7 @@ DASHBOARD_PASSWORD = "123"
 BATT_COST_PER_MW = 897404.0 
 CORP_TAX_RATE = 0.21 
 
-# --- 2. UNIFIED AUTHENTICATION PORTAL ---
+# --- 2. UNIFIED AUTHENTICATION PORTAL WITH EXECUTIVE BRIEF ---
 if "password_correct" not in st.session_state: 
     st.session_state.password_correct = False
 
@@ -30,20 +30,43 @@ def check_password():
             color: white;
             border-right: 1px solid #3d3f4b;
         }
-        .login-main { padding: 100px; display: flex; flex-direction: column; justify-content: center; }
+        .login-main { padding: 60px 100px; display: flex; flex-direction: column; justify-content: center; }
         .brand-text { color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 32px; margin-bottom: 5px; }
         .version-text { color: #808495; font-size: 14px; margin-bottom: 40px; }
-        .auth-card { background: #161b22; padding: 40px; border-radius: 8px; border: 1px solid #30363d; max-width: 450px; }
+        .auth-card { background: #161b22; padding: 40px; border-radius: 8px; border: 1px solid #30363d; max-width: 550px; }
         .auth-header { color: #ffffff; font-weight: 700; font-size: 24px; margin-bottom: 8px; }
         .auth-sub { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
+        .brief-section { color: #c9d1d9; font-size: 14px; line-height: 1.6; margin-bottom: 30px; border-left: 2px solid #0052FF; padding-left: 20px; }
+        .brief-title { color: #58a6ff; font-weight: 600; font-size: 13px; text-transform: uppercase; margin-bottom: 10px; }
         </style>
     """, unsafe_allow_html=True)
 
     col_side, col_main = st.columns([1, 3])
     with col_side:
-        st.markdown('<div class="login-sidebar"><p class="brand-text">Hybrid OS</p><p class="version-text">v12.9 Deployment</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-sidebar"><p class="brand-text">Hybrid OS</p><p class="version-text">v13.0 Deployment</p></div>', unsafe_allow_html=True)
+    
     with col_main:
-        st.markdown('<div class="login-main"><div class="auth-card"><p class="auth-header">Executive Access</p><p class="auth-sub">Grid Intelligence & Asset Optimization Portal</p>', unsafe_allow_html=True)
+        st.markdown('<div class="login-main"><div class="auth-card">', unsafe_allow_html=True)
+        st.markdown('<p class="auth-header">Executive Access</p>', unsafe_allow_html=True)
+        st.markdown('<p class="auth-sub">Grid Intelligence & Asset Optimization Portal</p>', unsafe_allow_html=True)
+        
+        # --- EXECUTIVE BRIEF SECTION ---
+        st.markdown('<p class="brief-title">Platform Overview</p>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="brief-section">
+            Hybrid OS functions as the <b>economic brain</b> for co-located energy assets. 
+            By integrating live ERCOT market telemetry with high-efficiency hardware modeling, 
+            the platform identifies the "Strategic Pivot" between grid exports and digital load.<br><br>
+            <b>Core Functionality:</b><br>
+            • <b>Dynamic Arbitrage:</b> Automatically identifies windows where mining at 15 J/TH 
+            outperforms spot market exports.<br>
+            • <b>Yield Optimization:</b> Calculates the ideal BESS/Compute ratio based on local 
+            volatility spreads (HB_WEST).<br>
+            • <b>Financial Engineering:</b> Integrates ITC and MACRS tax shields to provide 
+            audit-ready IRR and Payback projections.
+        </div>
+        """, unsafe_allow_html=True)
+        
         pwd = st.text_input("Institutional Access Key", type="password")
         if st.button("Authenticate Session", use_container_width=True, type="primary"):
             if pwd == DASHBOARD_PASSWORD:
@@ -58,7 +81,7 @@ if not check_password(): st.stop()
 
 # --- 3. PERSISTENT SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v12.9 Deployment")
+st.sidebar.caption("v13.0 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### ⚡ Generation Mix")
@@ -97,7 +120,7 @@ TREND_DATA_SYSTEM = {
     "$0.04 - $0.06": {"2021": 0.215, "2022": 0.228, "2023": 0.198, "2024": 0.182, "2025": 0.165},
     "$0.06 - $0.08": {"2021": 0.091, "2022": 0.082, "2023": 0.077, "2024": 0.072, "2025": 0.068},
     "$0.08 - $0.10": {"2021": 0.032, "2022": 0.021, "2023": 0.031, "2024": 0.034, "2025": 0.036},
-    "$0.10 - $0.15": {"2021": 0.012, "2022": 0.009, "2023": 0.018, "2024": 0.021, "2025": 0.023},
+    "$0.10 - $0.15": {"2021": 0.012, "2022": 0.009, "2023": 0.018, "2024": 0.021, "2023": 0.023},
     "$0.15 - $0.25": {"2021": 0.008, "2022": 0.004, "2023": 0.012, "2024": 0.014, "2025": 0.016},
     "$0.25 - $1.00": {"2021": 0.004, "2022": 0.003, "2023": 0.016, "2024": 0.010, "2025": 0.004},
     "$1.00 - $5.00": {"2021": 0.010, "2022": 0.003, "2023": 0.010, "2024": 0.006, "2025": 0.003}
@@ -152,7 +175,7 @@ with t_evolution:
         cur_rev_base = (total_gen * 103250) * 0.65
         fig = go.Figure(data=[
             go.Bar(name='Baseline', x=['Revenue'], y=[cur_rev_base], marker_color='#E0E0E0'),
-            go.Bar(name='Hybrid Optimized', x=['Revenue'], y=[cur_rev_base + idl_alpha], marker_color='#0052FF')
+            go.Bar(name='Hybrid OS Optimized', x=['Revenue'], y=[cur_rev_base + idl_alpha], marker_color='#0052FF')
         ])
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
@@ -213,23 +236,20 @@ with t_tax:
 
 with t_volatility:
     st.subheader("📈 Institutional Volatility Analysis")
-    st.write("The volatility of the ERCOT grid is undergoing a significant structural shift, characterized by a widening spread between the upper (scarcity) and lower (excess/negative) pricing bounds. This trend is driven by the increasing penetration of intermittent renewables and is most pronounced in localized hubs like West Texas.")
+    st.write("The volatility of the ERCOT grid is undergoing a significant structural shift, characterized by a widening spread between the upper (scarcity) and lower (excess/negative) pricing bounds.")
     
     # 1. Lower Bound
     st.markdown("#### 1. The Lower Bound: Exponential Growth of Negative Pricing")
     st.write("The lower pricing bound is increasingly defined by 'excess supply' events, where the grid has more power than it can consume or export.")
     st.write("* **Solar Saturation:** As solar capacity grows, the frequency of prices in the $0 - $0.02/kWh bracket has transitioned from a localized West Texas issue to a system-wide phenomenon.")
-    st.write("* **HB_WEST Dominance:** West Texas remains the 'Alpha Hub' for negative pricing. By 2025, negative price frequency in the West is projected to reach **12.1%**, nearly triple the system-wide average of 4.2%.")
-    st.write("* **The 'Free Fuel' Effect:** For behind-the-meter (BTM) assets like miners, this represents a growing window of 'free fuel' where the grid effectively pays the consumer to take power.")
+    st.write("* **HB_WEST Dominance:** West Texas remains the 'Alpha Hub' for negative pricing. By 2025, negative price frequency in the West is projected to reach **12.1%**.")
     
     # 2. Upper Bound
     st.markdown("#### 2. The Upper Bound: Scarcity and Peak Pricing")
-    st.write("While the bottom falls out of midday pricing, the upper bound is becoming more volatile due to 'scarcity' events when renewable generation drops off just as demand peaks.")
-    st.write("* **The Duck Curve Effect:** Solar generation drops off rapidly in the late afternoon. If wind or traditional gas plants cannot ramp up fast enough to meet evening demand, prices spike into the upper bounds (often exceeding $1.00 - $5.00/kWh).")
-    st.write("* **Winter Storm Uri Impact:** Extreme weather events like Winter Storm Uri (2021) demonstrated that the upper bound can hit the market cap for extended periods.")
-    st.write("* **Battery Dominance:** This volatility at the top is the primary revenue driver for the **Battery Alpha**, as the battery only discharges when prices cross the 'Strategic Pivot' threshold above the miner breakeven.")
+    st.write("The upper bound is becoming more volatile due to 'scarcity' events when renewable generation drops off just as demand peaks.")
+    st.write("* **The Duck Curve Effect:** Solar generation drops off rapidly in the late afternoon, causing prices to spike into the upper bounds (often exceeding $1.00 - $5.00/kWh).")
+    st.write("* **Battery Dominance:** This volatility at the top is the primary revenue driver for the **Battery Alpha**, as the battery only discharges during scarcity windows.")
 
-    # 3. Tables
     st.markdown("---")
     v_c1, v_c2 = st.columns(2)
     with v_c1:
@@ -238,12 +258,3 @@ with t_volatility:
     with v_c2:
         st.markdown("#### ERCOT System-Wide Distribution")
         st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
-    
-    st.markdown("---")
-    st.subheader("Strategic Pivot Windows")
-    st.table(pd.DataFrame({
-        "Price Category": ["Negative (<$0)", "$0 - $0.02", "High ($1.00+)"],
-        "2021 Frequency (West)": ["2.1%", "18.2%", "0.8%"],
-        "2025 Frequency (West)": ["12.1%", "33.5%", "0.5% (Proj)"],
-        "Operational Pivot": ["Mining (Free Fuel)", "Mining (Low Cost)", "Battery (Scarcity)"]
-    }).set_index("Price Category"))
