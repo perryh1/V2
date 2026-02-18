@@ -78,7 +78,7 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Breakeven Floor: **${breakeven:.2f}/MWh**")
 
-    # --- SECTION 2: HYBRID OPTIMIZATION ENGINE ---
+    # --- HYBRID OPTIMIZATION ENGINE ---
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
     total_gen = solar_cap + wind_cap
@@ -100,8 +100,6 @@ with tab1:
         roi = net / (ma + ba) if (ma + ba) > 0 else 0
         return ma, ba, base, net, irr, roi
 
-    s1, s2, s3, s4 = get_stage_metrics(35, batt_mw, 0), get_stage_metrics(ideal_m, ideal_b, 0), get_stage_metrics(35, batt_mw, 0.3), get_stage_metrics(ideal_m, ideal_b, 0.3)
-    
     # --- LIVE PERFORMANCE ---
     st.markdown("---")
     st.subheader("📊 Live Power & Performance")
@@ -120,20 +118,20 @@ with tab1:
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
 
-    # --- SPLIT FINANCIAL COMPARISON ---
+    # --- FINANCIAL COMPARISON ---
     st.markdown("---")
     st.subheader("💰 Post-Tax Financial Comparison")
     cl1, cl2 = st.columns(2)
+    s_cur = get_stage_metrics(35, batt_mw, t_rate)
+    s_opt = get_stage_metrics(ideal_m, ideal_b, t_rate)
     with cl1:
         st.write("#### 1. Current Setup (Post-Tax)")
-        # Display IRR and ROI
-        st.metric("Post-Tax IRR", f"{get_stage_metrics(35, batt_mw, t_rate)[4]:.1f}%")
-        st.metric("Post-Tax ROI", f"{get_stage_metrics(35, batt_mw, t_rate)[5]:.2f} Yrs")
+        st.metric("Post-Tax IRR", f"{s_cur[4]:.1f}%")
+        st.metric("Post-Tax ROI", f"{s_cur[5]:.2f} Yrs")
     with cl2:
         st.write("#### 2. Optimized Setup (Post-Tax)")
-        # Display IRR and ROI
-        st.metric("Post-Tax IRR", f"{get_stage_metrics(ideal_m, ideal_b, t_rate)[4]:.1f}%")
-        st.metric("Post-Tax ROI", f"{get_stage_metrics(ideal_m, ideal_b, t_rate)[5]:.2f} Yrs")
+        st.metric("Post-Tax IRR", f"{s_opt[4]:.1f}%")
+        st.metric("Post-Tax ROI", f"{s_opt[5]:.2f} Yrs")
 
     # --- EVOLUTION CARDS ---
     st.markdown("---")
@@ -143,7 +141,6 @@ with tab1:
         st.caption(f"{sub} ({m_v}MW / {b_v}MW)")
         total = met[0] + met[1] + met[2]
         st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${total:,.0f}</h1>", unsafe_allow_html=True)
-        # ROI and IRR side by side
         st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Yrs**")
         st.write(f"* ⛏️ Mining Alpha: `${met[0]:,.0f}`")
         st.write(f"* 🔋 Battery Alpha: `${met[1]:,.0f}`")
@@ -151,14 +148,23 @@ with tab1:
         st.write("---")
 
     c_a, c_b, c_c, c_d = st.columns(4)
-    with c_a: draw_card("1. Pre-Opt", s1, 35, batt_mw, "Current/No Tax")
-    with c_b: draw_card("2. Opt (Pre-Tax)", s2, ideal_m, ideal_b, "Ideal/No Tax")
-    with c_c: draw_card("3. Current (Post-Tax)", get_stage_metrics(35, batt_mw, t_rate), 35, batt_mw, "Current/Full Tax")
-    with c_d: draw_card("4. Opt (Post-Tax)", get_stage_metrics(ideal_m, ideal_b, t_rate), ideal_m, ideal_b, "Ideal/Full Tax")
+    with c_a: draw_card("1. Pre-Opt", get_stage_metrics(35, batt_mw, 0), 35, batt_mw, "Current/No Tax")
+    with c_b: draw_card("2. Opt (Pre-Tax)", get_stage_metrics(ideal_m, ideal_b, 0), ideal_m, ideal_b, "Ideal/No Tax")
+    with c_c: draw_card("3. Current (Post-Tax)", s_cur, 35, batt_mw, "Current/Full Tax")
+    with c_d: draw_card("4. Opt (Post-Tax)", s_opt, ideal_m, ideal_b, "Ideal/Full Tax")
 
 with tab2:
     st.subheader("📈 5-Year Price Frequency Dataset")
     st.markdown("#### 1. West Texas (HB_WEST)")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
+    
     st.markdown("#### 2. ERCOT System-Wide Average")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+    
+    st.markdown("---")
+    st.subheader("🧐 Strategic Trend Analysis")
+    st.write("""
+    * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub' for negative prices (12.1% by 2025 vs 4.2% System-wide). This confirms that behind-the-meter (BTM) miners in the West are capturing nearly 3x the 'free fuel' of the broader grid.
+    * **The 2021 Uri Impact:** System-wide assets were actually more exposed to scarcity pricing than West Texas during Winter Storm Uri, proving localized resilience for Midland-based assets.
+    * **Solar Saturation:** The growth in the $0-$0.02 bracket is now a system-wide phenomenon. This confirms that the 'Hybrid' model—co-locating compute and storage—is now a requirement for any renewable site across Texas.
+    """)
