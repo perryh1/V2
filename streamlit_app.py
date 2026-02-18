@@ -109,7 +109,6 @@ price_hist = get_live_data()
 t_evolution, t_tax, t_volatility = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
 with t_evolution:
-    # --- CONFIGURATION ---
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -124,7 +123,6 @@ with t_evolution:
         b_mw_in = st.number_input("Starting Battery Size (MW)", value=0)
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
 
-    # --- LIVE DATA ---
     st.markdown("---")
     curr_p = price_hist.iloc[-1]
     total_gen = solar_cap + wind_cap
@@ -137,7 +135,6 @@ with t_evolution:
     l3.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
     l3.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
 
-    # --- OPTIMIZATION ---
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
@@ -158,11 +155,12 @@ with t_evolution:
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- HISTORICAL ---
     st.markdown("---")
     st.subheader("📅 Historical Alpha Potential (Revenue Split)")
     h1, h2, h3, h4, h5 = st.columns(5)
     dm, db = m_yield_yr / 365, b_yield_yr / 365
+
+    # --- UPDATED SPLIT LOGIC (Single New Line for Battery) ---
     def show_split(col, lbl, days, base):
         sc = (total_gen / 200); cr = (base * sc) * 0.65
         ma, ba = dm * days, db * days
@@ -171,7 +169,10 @@ with t_evolution:
             st.markdown(f"**Grid Baseline**")
             st.markdown(f"<h2 style='margin-bottom:0;'>${cr:,.0f}</h2>", unsafe_allow_html=True)
             st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(ma + ba):,.0f} Potential Alpha</p>", unsafe_allow_html=True)
-            st.write(f" * ⛏️ Mining: `${ma:,.0f}` | 🔋 Battery: `${ba:,.0f}`")
+            st.write(f" * ⛏️ Mining: `${ma:,.0f}`")
+            st.write(f" * 🔋 Battery: `${ba:,.0f}`")
+            st.write("---")
+
     show_split(h1, "24H", 1, 101116); show_split(h2, "7D", 7, 704735); show_split(h3, "30D", 30, 3009339)
     show_split(h4, "6M", 182, 13159992); show_split(h5, "1Y", 365, 26469998)
 
