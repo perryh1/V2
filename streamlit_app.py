@@ -102,25 +102,26 @@ with tab1:
     st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
     st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
 
-    # 4. HISTORICAL PERFORMANCE (CUMULATIVE ALPHA) - NOW HARD-CODED
+    # 4. HISTORICAL PERFORMANCE (CUMULATIVE ALPHA) -- THIS IS THE MISSING SECTION
     st.markdown("---")
     st.subheader("📅 Historical Performance (Cumulative Alpha)")
     
-    def show_cum(label, total, alpha, grid, mine, batt):
+    def render_historical(label, site_rev, alpha, grid, mine, batt):
         st.markdown(f"#### {label}")
         st.markdown(f"**Total Site Revenue**")
-        st.markdown(f"<h1 style='margin-bottom:0;'>${total:,.0f}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='margin-bottom:0;'>${site_rev:,.0f}</h1>", unsafe_allow_html=True)
         st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
-        st.write(f" * ⚡ **Grid (Base):** :green[${grid:,.0f}]")
-        st.write(f" * ⛏️ **Mining Alpha:** :green[${mine:,.0f}]")
-        st.write(f" * 🔋 **Battery Alpha:** :green[${batt:,.0f}]")
-        st.write("---")
+        st.markdown(f"<li> ⚡ **Grid (Base):** <span style='color:#28a745;'>${grid:,.0f}</span></li>", unsafe_allow_html=True)
+        st.markdown(f"<li> ⛏️ **Mining Alpha:** <span style='color:#28a745;'>${mine:,.0f}</span></li>", unsafe_allow_html=True)
+        st.markdown(f"<li> 🔋 **Battery Alpha:** <span style='color:#28a745;'>${batt:,.0f}</span></li>", unsafe_allow_html=True)
+        st.write("")
 
-    show_cum("Last 24 Hours", 101116, 47527, 53589, 47527, 0)
-    show_cum("Last 7 Days", 704735, 335624, 369111, 335624, 0)
-    show_cum("Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
-    show_cum("Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
-    show_cum("Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
+    # Hard-coded calls to ensure section renders
+    render_historical("Last 24 Hours", 101116, 47527, 53589, 47527, 0)
+    render_historical("Last 7 Days", 704735, 335624, 369111, 335624, 0)
+    render_historical("Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
+    render_historical("Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
+    render_historical("Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
     # 5. TAX STRATEGY
     st.markdown("---")
