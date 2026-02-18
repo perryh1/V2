@@ -192,3 +192,4 @@ with tab3:
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
     st.markdown("#### 2. ERCOT System-Wide Price Frequency")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+    
