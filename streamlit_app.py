@@ -65,6 +65,7 @@ price_hist = get_live_data()
 tab1, tab2 = st.tabs(["📊 Performance Evolution", "📈 Long-Term Volatility"])
 
 with tab1:
+    # 1. SYSTEM CONFIGURATION
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -77,7 +78,7 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Breakeven Floor: **${breakeven:.2f}/MWh**")
 
-    # --- HYBRID OPTIMIZATION ENGINE ---
+    # 2. HYBRID OPTIMIZATION ENGINE
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
     total_gen = solar_cap + wind_cap
@@ -86,7 +87,7 @@ with tab1:
     ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
     st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
     
-    # --- LIVE POWER & PERFORMANCE ---
+    # 3. LIVE POWER & PERFORMANCE
     st.markdown("---")
     st.subheader("📊 Live Power & Performance")
     curr_p = price_hist.iloc[-1]
@@ -101,14 +102,14 @@ with tab1:
     st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
     st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
 
-    # --- HISTORICAL PERFORMANCE (RESTORED SECTION) ---
+    # 4. HISTORICAL PERFORMANCE (CUMULATIVE ALPHA) - NOW HARD-CODED
     st.markdown("---")
     st.subheader("📅 Historical Performance (Cumulative Alpha)")
     
     def show_cum(label, total, alpha, grid, mine, batt):
         st.markdown(f"#### {label}")
         st.markdown(f"**Total Site Revenue**")
-        st.markdown(f"<h1>${total:,.0f}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='margin-bottom:0;'>${total:,.0f}</h1>", unsafe_allow_html=True)
         st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
         st.write(f" * ⚡ **Grid (Base):** :green[${grid:,.0f}]")
         st.write(f" * ⛏️ **Mining Alpha:** :green[${mine:,.0f}]")
@@ -121,7 +122,7 @@ with tab1:
     show_cum("Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
     show_cum("Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
-    # --- TAX STRATEGY ---
+    # 5. TAX STRATEGY
     st.markdown("---")
     st.subheader("🏛️ Commercial Tax Strategy")
     tx1, tx2, tx3 = st.columns(3)
@@ -129,7 +130,7 @@ with tab1:
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
 
-    # --- REVENUE ENGINE ---
+    # 6. PERFORMANCE ENGINE & CARDS
     capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
     def get_metrics(m, b, itc_r):
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
@@ -154,7 +155,6 @@ with tab1:
         st.metric("Post-Tax IRR", f"{s_opt[4]:.1f}%")
         st.metric("Post-Tax ROI", f"{s_opt[5]:.2f} Yrs")
 
-    # --- EVOLUTION CARDS ---
     st.markdown("---")
     st.subheader("📋 Historical Performance Evolution")
     def draw_card(lbl, met, m_v, b_v, sub):
