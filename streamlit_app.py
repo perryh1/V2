@@ -6,7 +6,7 @@ import requests
 import gridstatus
 from datetime import datetime, timedelta
 
-# --- DESKTOP WIDE MODE ---
+# --- 1. DESKTOP WIDE MODE & APP CONFIG ---
 st.set_page_config(layout="wide", page_title="Midland Hybrid Alpha")
 
 # --- CONFIGURATION ---
@@ -14,7 +14,7 @@ DASHBOARD_PASSWORD = "123"
 LAT, LONG = 31.997, -102.077
 BATT_COST_PER_MW = 897404.0 
 
-# --- DATASETS ---
+# --- DATASETS (2¢ INTERVALS) ---
 TREND_DATA_WEST = {
     "Negative (<$0)":    {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02":       {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -41,7 +41,7 @@ TREND_DATA_SYSTEM = {
     "$1.00 - $5.00":    {"2021": 0.010, "2022": 0.003, "2023": 0.010, "2024": 0.006, "2025": 0.003}
 }
 
-# --- AUTHENTICATION ---
+# --- 2. AUTHENTICATION ---
 if "password_correct" not in st.session_state: st.session_state.password_correct = False
 def check_password():
     if st.session_state.password_correct: return True
@@ -54,6 +54,7 @@ def check_password():
 
 if not check_password(): st.stop()
 
+# --- 3. LIVE DATA FETCH ---
 @st.cache_data(ttl=300)
 def get_live_data():
     try:
@@ -64,7 +65,7 @@ def get_live_data():
 
 price_hist = get_live_data()
 
-# --- APP TABS ---
+# --- 4. APP TABS REORDERED ---
 tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
 with tab1:
@@ -123,25 +124,35 @@ with tab1:
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 4. HISTORICAL PERFORMANCE (CUMULATIVE ALPHA)
+    # 4. DYNAMIC HISTORICAL PERFORMANCE
     st.markdown("---")
-    st.subheader("📅 Historical Performance (Cumulative Alpha)")
-    def show_cum(col, label, total, alpha, grid, mine, batt):
+    st.subheader("📅 Historical Performance (Live Optimization Comparison)")
+    
+    annual_upside = idl_rev - cur_rev
+    daily_upside = annual_upside / 365
+
+    def show_dynamic_cum(col, label, days, base_rev):
+        # Scaling static baseline by current MW slider config
+        scale_factor = (total_gen / 200) 
+        current_total = base_rev * scale_factor
+        opt_total = current_total + (daily_upside * days)
+        upside_pct = (opt_total - current_total) / current_total * 100 if current_total > 0 else 0
+        
         with col:
             st.markdown(f"#### {label}")
-            st.markdown(f"**Total Site Revenue**")
-            st.markdown(f"<h2 style='margin-bottom:0;'>${total:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
-            st.write(f" * ⚡ **Grid:** :green[${grid:,.0f}]")
-            st.write(f" * ⛏️ **Mining:** :green[${mine:,.0f}]")
-            st.write(f" * 🔋 **Battery:** :green[${batt:,.0f}]")
+            st.markdown(f"**Current Revenue**")
+            st.markdown(f"<h2 style='margin-bottom:0;'>${current_total:,.0f}</h2>", unsafe_allow_html=True)
+            st.markdown(f"**Optimized Total**")
+            st.markdown(f"<h2 style='color:#1565C0; margin-bottom:0;'>${opt_total:,.0f}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#28a745;'>↑ {upside_pct:.1f}% Opt. Alpha</p>", unsafe_allow_html=True)
+            st.write("---")
 
     h1, h2, h3, h4, h5 = st.columns(5)
-    show_cum(h1, "Last 24 Hours", 101116, 47527, 53589, 47527, 0)
-    show_cum(h2, "Last 7 Days", 704735, 335624, 369111, 335624, 0)
-    show_cum(h3, "Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
-    show_cum(h4, "Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
-    show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
+    show_dynamic_cum(h1, "Last 24 Hours", 1, 101116)
+    show_dynamic_cum(h2, "Last 7 Days", 7, 704735)
+    show_dynamic_cum(h3, "Last 30 Days", 30, 3009339)
+    show_dynamic_cum(h4, "Last 6 Months", 182, 13159992)
+    show_dynamic_cum(h5, "Last 1 Year", 365, 26469998)
 
 with tab2:
     # 5. TAX STRATEGY & DEFINITIONS
@@ -213,3 +224,10 @@ with tab3:
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
     st.markdown("#### 2. ERCOT System-Wide Average")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+    st.markdown("---")
+    st.subheader("🧐 Strategic Trend Analysis")
+    st.write("""
+    * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub' for negative prices.
+    * **The 2021 Uri Impact:** System-wide assets were more exposed to scarcity.
+    * **Solar Saturation:** Growth in the low price bracket is system-wide.
+    """)
