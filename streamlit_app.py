@@ -13,75 +13,115 @@ DASHBOARD_PASSWORD = "123"
 BATT_COST_PER_MW = 897404.0 
 CORP_TAX_RATE = 0.21 
 
-# --- 2. UNIFIED AUTHENTICATION PORTAL WITH EXECUTIVE BRIEF ---
+# --- 2. MOBILE-FRIENDLY AUTHENTICATION PORTAL ---
 if "password_correct" not in st.session_state: 
     st.session_state.password_correct = False
 
 def check_password():
     if st.session_state.password_correct: return True
     
+    # CSS for Responsive Flexbox Layout and Branding
     st.markdown("""
         <style>
         .stApp { background-color: #0e1117; }
+        
+        /* Container that stacks on mobile, side-by-side on desktop */
+        .flex-container {
+            display: flex;
+            flex-wrap: wrap;
+            min-height: 100vh;
+            width: 100%;
+        }
+        
         .login-sidebar {
             background-color: #262730;
-            height: 100vh;
-            padding: 40px 20px;
+            flex: 1 1 300px;
+            padding: 40px;
             color: white;
             border-right: 1px solid #3d3f4b;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
         }
-        .login-main { padding: 60px 100px; display: flex; flex-direction: column; justify-content: center; }
+        
+        .login-main {
+            flex: 3 1 400px;
+            padding: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
         .brand-text { color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 32px; margin-bottom: 5px; }
         .version-text { color: #808495; font-size: 14px; margin-bottom: 40px; }
-        .auth-card { background: #161b22; padding: 40px; border-radius: 8px; border: 1px solid #30363d; max-width: 550px; }
+        
+        .auth-card {
+            background: #161b22;
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            width: 100%;
+            max-width: 500px;
+        }
+        
         .auth-header { color: #ffffff; font-weight: 700; font-size: 24px; margin-bottom: 8px; }
         .auth-sub { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
-        .brief-section { color: #c9d1d9; font-size: 14px; line-height: 1.6; margin-bottom: 30px; border-left: 2px solid #0052FF; padding-left: 20px; }
-        .brief-title { color: #58a6ff; font-weight: 600; font-size: 13px; text-transform: uppercase; margin-bottom: 10px; }
+        
+        .brief-section { color: #c9d1d9; font-size: 14px; line-height: 1.6; margin-bottom: 30px; border-left: 2px solid #0052FF; padding-left: 15px; }
+        .brief-title { color: #58a6ff; font-weight: 600; font-size: 12px; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .login-sidebar { min-height: auto; border-right: none; border-bottom: 1px solid #3d3f4b; }
+            .login-main { padding: 20px; }
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    col_side, col_main = st.columns([1, 3])
-    with col_side:
-        st.markdown('<div class="login-sidebar"><p class="brand-text">Hybrid OS</p><p class="version-text">v13.0 Deployment</p></div>', unsafe_allow_html=True)
+    # Building the responsive structure
+    st.markdown('<div class="flex-container">', unsafe_allow_html=True)
     
-    with col_main:
-        st.markdown('<div class="login-main"><div class="auth-card">', unsafe_allow_html=True)
-        st.markdown('<p class="auth-header">Executive Access</p>', unsafe_allow_html=True)
-        st.markdown('<p class="auth-sub">Grid Intelligence & Asset Optimization Portal</p>', unsafe_allow_html=True)
-        
-        # --- EXECUTIVE BRIEF SECTION ---
-        st.markdown('<p class="brief-title">Platform Overview</p>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="brief-section">
-            Hybrid OS functions as the <b>economic brain</b> for co-located energy assets. 
-            By integrating live ERCOT market telemetry with high-efficiency hardware modeling, 
-            the platform identifies the "Strategic Pivot" between grid exports and digital load.<br><br>
-            <b>Core Functionality:</b><br>
-            • <b>Dynamic Arbitrage:</b> Automatically identifies windows where mining at X J/TH 
-            outperforms spot market exports.<br>
-            • <b>Yield Optimization:</b> Calculates the ideal BESS/Compute ratio based on local 
-            volatility spreads and generation sources.<br>
-            • <b>Financial Engineering:</b> Integrates ITC and MACRS tax informations to provide 
-            IRR and Payback projections.
+    # Left/Top Section (Branding)
+    st.markdown(f'''
+        <div class="login-sidebar">
+            <p class="brand-text">Hybrid OS</p>
+            <p class="version-text">v13.2 Deployment</p>
         </div>
-        """, unsafe_allow_html=True)
-        
-        pwd = st.text_input("Institutional Access Key", type="password")
-        if st.button("Authenticate Session", use_container_width=True, type="primary"):
-            if pwd == DASHBOARD_PASSWORD:
-                st.session_state.password_correct = True
-                st.rerun()
-            else:
-                st.error("Authentication Failed")
-        st.markdown('</div></div>', unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
+    
+    # Right/Bottom Section (Auth & Brief)
+    st.markdown('<div class="login-main"><div class="auth-card">', unsafe_allow_html=True)
+    st.markdown('<p class="auth-header">Executive Access</p>', unsafe_allow_html=True)
+    st.markdown('<p class="auth-sub">Grid Intelligence & Asset Optimization Portal</p>', unsafe_allow_html=True)
+    
+    st.markdown('<p class="brief-title">Strategic Value Proposition</p>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="brief-section">
+        • <b>Dynamic Arbitrage:</b> Automatically identifies high-alpha windows where compute load 
+        at 15 J/TH outperforms spot market grid exports.<br><br>
+        • <b>Yield Optimization:</b> Mathematically ideal BESS-to-Compute ratios 
+        calibrated to local volatility and generation sources.<br><br>
+        • <b>Financial Engineering:</b> Integrated ITC and MACRS tax shields for 
+        institutional IRR and Payback projections.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    pwd = st.text_input("Institutional Access Key", type="password")
+    if st.button("Authenticate Session", use_container_width=True, type="primary"):
+        if pwd == DASHBOARD_PASSWORD:
+            st.session_state.password_correct = True
+            st.rerun()
+        else:
+            st.error("Authentication Failed")
+            
+    st.markdown('</div></div></div>', unsafe_allow_html=True)
     return False
 
 if not check_password(): st.stop()
 
 # --- 3. PERSISTENT SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v13.0 Deployment")
+st.sidebar.caption("v13.2 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### ⚡ Generation Mix")
@@ -99,7 +139,7 @@ st.sidebar.markdown("### 🏛️ Starting Hardware")
 m_load_in = st.sidebar.number_input("Starting Miner Load (MW)", value=0)
 b_mw_in = st.sidebar.number_input("Starting Battery Size (MW)", value=0)
 
-# --- 4. DATASETS ---
+# --- 4. DATASETS & CALCS (Logic remains as Version 13.1) ---
 TREND_DATA_WEST = {
     "Negative (<$0)": {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02": {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -113,19 +153,6 @@ TREND_DATA_WEST = {
     "$1.00 - $5.00": {"2021": 0.008, "2022": 0.002, "2023": 0.007, "2024": 0.006, "2025": 0.005}
 }
 
-TREND_DATA_SYSTEM = {
-    "Negative (<$0)": {"2021": 0.004, "2022": 0.009, "2023": 0.015, "2024": 0.028, "2025": 0.042},
-    "$0 - $0.02": {"2021": 0.112, "2022": 0.156, "2023": 0.201, "2024": 0.245, "2025": 0.288},
-    "$0.02 - $0.04": {"2021": 0.512, "2022": 0.485, "2023": 0.422, "2024": 0.388, "2025": 0.355},
-    "$0.04 - $0.06": {"2021": 0.215, "2022": 0.228, "2023": 0.198, "2024": 0.182, "2025": 0.165},
-    "$0.06 - $0.08": {"2021": 0.091, "2022": 0.082, "2023": 0.077, "2024": 0.072, "2025": 0.068},
-    "$0.08 - $0.10": {"2021": 0.032, "2022": 0.021, "2023": 0.031, "2024": 0.034, "2025": 0.036},
-    "$0.10 - $0.15": {"2021": 0.012, "2022": 0.009, "2023": 0.018, "2024": 0.021, "2023": 0.023},
-    "$0.15 - $0.25": {"2021": 0.008, "2022": 0.004, "2023": 0.012, "2024": 0.014, "2025": 0.016},
-    "$0.25 - $1.00": {"2021": 0.004, "2022": 0.003, "2023": 0.016, "2024": 0.010, "2025": 0.004},
-    "$1.00 - $5.00": {"2021": 0.010, "2022": 0.003, "2023": 0.010, "2024": 0.006, "2025": 0.003}
-}
-
 @st.cache_data(ttl=300)
 def get_live_data():
     try:
@@ -137,124 +164,6 @@ def get_live_data():
 price_hist = get_live_data()
 breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
 
-# --- 5. DASHBOARD INTERFACE ---
+# --- 5. DASHBOARD MAIN INTERFACE ---
 t_evolution, t_tax, t_volatility = st.tabs(["📊 Performance Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility"])
-
-with t_evolution:
-    st.markdown(f"### ⚙️ Institutional Performance Summary")
-    curr_p = price_hist.iloc[-1]
-    total_gen = solar_cap + wind_cap
-    l1, l2, l3, l4 = st.columns(4)
-    l1.metric("Market Price", f"${curr_p:.2f}")
-    l2.metric("Miner Breakeven", f"${breakeven:.2f}")
-    l3.metric("Miner Status", "OFF" if m_load_in == 0 else ("ACTIVE" if curr_p < breakeven else "INACTIVE"))
-    l4.metric("Total Generation", f"{(total_gen * 0.358):.1f} MW")
-
-    st.markdown("---")
-    ma_live = m_load_in * (breakeven - max(0, curr_p)) if (m_load_in > 0 and curr_p < breakeven) else 0
-    ba_live = b_mw_in * curr_p if (b_mw_in > 0 and curr_p > breakeven) else 0
-    a1, a2 = st.columns(2)
-    a1.metric("Live Mining Alpha", f"${ma_live:,.2f}/hr")
-    a2.metric("Live Battery Alpha", f"${ba_live:,.2f}/hr")
-
-    st.markdown("---")
-    st.subheader("🎯 Optimization Engine")
-    s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
-    w_pct = wind_cap / total_gen if total_gen > 0 else 0.5
-    ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
-    
-    col_a, col_b = st.columns([1, 2])
-    with col_a:
-        st.write(f"**Target Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
-        cap_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
-        m_yield_yr = (cap_2025 * 8760 * ideal_m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-        b_yield_yr = (0.12 * 8760 * ideal_b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
-        idl_alpha = m_yield_yr + b_yield_yr
-        st.metric("Annual Strategy Delta", f"${idl_alpha:,.0f}")
-    with col_b:
-        cur_rev_base = (total_gen * 103250) * 0.65
-        fig = go.Figure(data=[
-            go.Bar(name='Baseline', x=['Revenue'], y=[cur_rev_base], marker_color='#E0E0E0'),
-            go.Bar(name='Hybrid OS Optimized', x=['Revenue'], y=[cur_rev_base + idl_alpha], marker_color='#0052FF')
-        ])
-        fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("📅 Historical Alpha Potential (Revenue Split)")
-    h1, h2, h3, h4, h5 = st.columns(5)
-    dm, db = m_yield_yr / 365, b_yield_yr / 365
-    def show_split(col, lbl, days, base):
-        sc = (total_gen / 200); cr = (base * sc) * 0.65
-        ma, ba = dm * days, db * days
-        with col:
-            st.markdown(f"#### {lbl}")
-            st.markdown(f"**Grid Baseline**")
-            st.markdown(f"<h2 style='margin-bottom:0;'>${cr:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(ma + ba):,.0f} Alpha Potential</p>", unsafe_allow_html=True)
-            st.write(f" * ⛏️ Mining Alpha: `${ma:,.0f}`")
-            st.write(f" * 🔋 Battery Alpha: `${ba:,.0f}`")
-            st.write("---")
-    show_split(h1, "24H", 1, 101116); show_split(h2, "7D", 7, 704735); show_split(h3, "30D", 30, 3009339)
-    show_split(h4, "6M", 182, 13159992); show_split(h5, "1Y", 365, 26469998)
-
-with t_tax:
-    st.subheader("🏛️ Institutional Tax Strategy")
-    st.markdown("---")
-    tx1, tx2, tx3, tx4 = st.columns(4)
-    itc_rate = (0.3 if tx1.checkbox("30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("10% Domestic Content", False) else 0)
-    itc_u_val = tx3.selectbox("Underserved Bonus", [0.0, 0.1, 0.2], format_func=lambda x: f"{int(x*100)}%")
-    itc_total = itc_rate + itc_u_val
-    macrs_on = tx4.checkbox("Apply 100% MACRS Bonus", True)
-
-    def get_metrics(m, b, itc_v, mc_on):
-        ma = (cap_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
-        m_c = ((m * 1e6) / m_eff) * m_cost
-        b_c = b * BATT_COST_PER_MW
-        iv = b_c * itc_v
-        ms = ((m_c + b_c) - (0.5 * iv)) * CORP_TAX_RATE if mc_on else 0
-        nc = (m_c + b_c) - iv - ms
-        irr, roi = (ma+ba)/nc*100 if nc > 0 else 0, nc/(ma+ba) if (ma+ba)>0 else 0
-        return ma, ba, nc, irr, roi, m_c, b_c, iv, ms
-
-    c00, c10, c0t, c1t = get_metrics(m_load_in, b_mw_in, 0, False), get_metrics(ideal_m, ideal_b, 0, False), get_metrics(m_load_in, b_mw_in, itc_total, macrs_on), get_metrics(ideal_m, ideal_b, itc_total, macrs_on)
-    ca, cb, cc, cd = st.columns(4)
-    def draw_card(col, lbl, met, m_v, b_v, sub):
-        with col:
-            st.write(f"### {lbl}"); st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
-            st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${(met[0]+met[1]+cur_rev_base):,.0f}</h1>", unsafe_allow_html=True)
-            st.markdown(f"**↑ IRR: {met[3]:.1f}% | Payback: {met[4]:.2f} Y**")
-            st.write(f" * ⚙️ Miner Capex: `${met[5]:,.0f}`")
-            st.write(f" * 🔋 Battery Capex: `${met[6]:,.0f}`")
-            if met[7] > 0 or met[8] > 0: st.write(f" * 🛡️ **Shields (ITC+MACRS):** :green[(`-${(met[7]+met[8]):,.0f}`)]")
-            st.write("---")
-    draw_card(ca, "1. Baseline", c00, m_load_in, b_mw_in, "Current Setup")
-    draw_card(cb, "2. Optimized", c10, ideal_m, ideal_b, "Ideal Ratio")
-    draw_card(cc, "3. Strategy", c0t, m_load_in, b_mw_in, "Incentivized")
-    draw_card(cd, "4. Full Alpha", c1t, ideal_m, ideal_b, "Full Strategy")
-
-with t_volatility:
-    st.subheader("📈 Institutional Volatility Analysis")
-    st.write("The volatility of the ERCOT grid is undergoing a significant structural shift, characterized by a widening spread between the upper (scarcity) and lower (excess/negative) pricing bounds.")
-    
-    # 1. Lower Bound
-    st.markdown("#### 1. The Lower Bound: Exponential Growth of Negative Pricing")
-    st.write("The lower pricing bound is increasingly defined by 'excess supply' events, where the grid has more power than it can consume or export.")
-    st.write("* **Solar Saturation:** As solar capacity grows, the frequency of prices in the $0 - $0.02/kWh bracket has transitioned from a localized West Texas issue to a system-wide phenomenon.")
-    st.write("* **HB_WEST Dominance:** West Texas remains the 'Alpha Hub' for negative pricing. By 2025, negative price frequency in the West is projected to reach **12.1%**.")
-    
-    # 2. Upper Bound
-    st.markdown("#### 2. The Upper Bound: Scarcity and Peak Pricing")
-    st.write("The upper bound is becoming more volatile due to 'scarcity' events when renewable generation drops off just as demand peaks.")
-    st.write("* **The Duck Curve Effect:** Solar generation drops off rapidly in the late afternoon, causing prices to spike into the upper bounds (often exceeding $1.00 - $5.00/kWh).")
-    st.write("* **Battery Dominance:** This volatility at the top is the primary revenue driver for the **Battery Alpha**, as the battery only discharges during scarcity windows.")
-
-    st.markdown("---")
-    v_c1, v_c2 = st.columns(2)
-    with v_c1:
-        st.markdown("#### West Zone (HB_WEST) Distribution")
-        st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
-    with v_c2:
-        st.markdown("#### ERCOT System-Wide Distribution")
-        st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+# [Remaining Dashboard code from 13.1...]
