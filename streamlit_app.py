@@ -58,12 +58,12 @@ def check_password():
             By integrating live ERCOT market telemetry with high-efficiency hardware modeling, 
             the platform identifies the "Strategic Pivot" between grid exports and digital load.<br><br>
             <b>Core Functionality:</b><br>
-            • <b>Dynamic Arbitrage:</b> Automatically identifies windows where mining at 15 J/TH 
+            • <b>Dynamic Arbitrage:</b> Automatically identifies windows where mining at X J/TH 
             outperforms spot market exports.<br>
             • <b>Yield Optimization:</b> Calculates the ideal BESS/Compute ratio based on local 
-            volatility spreads (HB_WEST).<br>
-            • <b>Financial Engineering:</b> Integrates ITC and MACRS tax shields to provide 
-            audit-ready IRR and Payback projections.
+            volatility spreads and generation sources.<br>
+            • <b>Financial Engineering:</b> Integrates ITC and MACRS tax informations to provide 
+            IRR and Payback projections.
         </div>
         """, unsafe_allow_html=True)
         
