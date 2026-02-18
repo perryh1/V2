@@ -65,10 +65,11 @@ def get_live_data():
 price_hist = get_live_data()
 
 # --- APP TABS ---
-tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "📈 Long-Term Volatility", "🏛️ Commercial Tax"])
+# Renamed Tab 3 per user request
+tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "📈 Long-Term Volatility", "🏛️ Tax Optimized Hardware"])
 
 with tab1:
-    # --- CONFIG & LIVE ---
+    # --- 1. SYSTEM CONFIGURATION ---
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -81,29 +82,7 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Breakeven Floor: **${breakeven:.2f}/MWh**")
 
-    # --- HISTORICAL PERFORMANCE (HORIZONTAL COLUMNS) ---
-    st.markdown("---")
-    st.subheader("📅 Historical Performance (Cumulative Alpha)")
-    
-    def show_cum(col, label, total, alpha, grid, mine, batt):
-        with col:
-            st.markdown(f"#### {label}")
-            st.markdown(f"**Total Site Revenue**")
-            st.markdown(f"<h2 style='margin-bottom:0;'>${total:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
-            st.write(f" * ⚡ **Grid:** :green[${grid:,.0f}]")
-            st.write(f" * ⛏️ **Mining:** :green[${mine:,.0f}]")
-            st.write(f" * 🔋 **Battery:** :green[${batt:,.0f}]")
-
-    # Create 5 columns to force horizontal layout on desktop
-    h1, h2, h3, h4, h5 = st.columns(5)
-    show_cum(h1, "Last 24 Hours", 101116, 47527, 53589, 47527, 0)
-    show_cum(h2, "Last 7 Days", 704735, 335624, 369111, 335624, 0)
-    show_cum(h3, "Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
-    show_cum(h4, "Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
-    show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
-
-    # --- OPTIMIZATION ENGINE ---
+    # --- 2. HYBRID OPTIMIZATION ENGINE ---
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
     total_gen = solar_cap + wind_cap
@@ -129,6 +108,27 @@ with tab1:
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
+    # --- 3. HISTORICAL PERFORMANCE ---
+    st.markdown("---")
+    st.subheader("📅 Historical Performance (Cumulative Alpha)")
+    
+    def show_cum(col, label, total, alpha, grid, mine, batt):
+        with col:
+            st.markdown(f"#### {label}")
+            st.markdown(f"**Total Site Revenue**")
+            st.markdown(f"<h2 style='margin-bottom:0;'>${total:,.0f}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#28a745;'>↑ ${alpha:,.0f} Alpha</p>", unsafe_allow_html=True)
+            st.write(f" * ⚡ **Grid:** :green[${grid:,.0f}]")
+            st.write(f" * ⛏️ **Mining:** :green[${mine:,.0f}]")
+            st.write(f" * 🔋 **Battery:** :green[${batt:,.0f}]")
+
+    h1, h2, h3, h4, h5 = st.columns(5)
+    show_cum(h1, "Last 24 Hours", 101116, 47527, 53589, 47527, 0)
+    show_cum(h2, "Last 7 Days", 704735, 335624, 369111, 335624, 0)
+    show_cum(h3, "Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
+    show_cum(h4, "Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
+    show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
+
 with tab2:
     st.subheader("📈 5-Year Price Frequency Dataset")
     st.markdown("#### 1. West Texas (HB_WEST)")
@@ -137,7 +137,8 @@ with tab2:
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
 
 with tab3:
-    st.subheader("🏛️ Commercial Tax Strategy")
+    # --- 5. TAX STRATEGY LOGIC ---
+    st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
     tx1, tx2, tx3 = st.columns(3)
     t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
@@ -154,10 +155,6 @@ with tab3:
 
     s_cur, s_opt = get_metrics(35, batt_mw, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
     
-    c_a, c_b = st.columns(2)
-    c_a.metric("Post-Tax IRR (Current)", f"{s_cur[4]:.1f}%")
-    c_b.metric("Post-Tax IRR (Ideal)", f"{s_opt[4]:.1f}%")
-
     st.markdown("---")
     st.subheader("📋 Historical Performance Evolution")
     def draw_card(col, lbl, met, m_v, b_v, sub):
