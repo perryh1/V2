@@ -142,7 +142,7 @@ with tab1:
         st.write(f" * 🔋 **Battery Alpha:** :green[${batt:,.0f}]")
         st.write("---")
 
-    show_cum("Last 24 Hours", 101116, 47527, 53589, 47527, 0)
+    show_cum("Last 24 Hours", 101116, 47527, 53589, 47527, 0)  show_cum("Last 7 Days", 704735, 335624, 369111, 335624, 0)
     show_cum("Last 7 Days", 704735, 335624, 369111, 335624, 0)
     show_cum("Last 30 Days", 3009339, 1448833, 1560506, 1448833, 0)
     show_cum("Last 6 Months", 13159992, 2909992, 10250000, 1559992, 1350000)
