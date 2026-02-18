@@ -61,7 +61,7 @@ def get_live_data():
 
 price_hist = get_live_data()
 
-# --- TAB 1 ---
+# --- APP TABS ---
 tab1, tab2 = st.tabs(["📊 Performance Evolution", "📈 Long-Term Volatility"])
 
 with tab1:
@@ -77,7 +77,7 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Breakeven Floor: **${breakeven:.2f}/MWh**")
 
-    # --- OPTIMIZATION ENGINE ---
+    # --- HYBRID OPTIMIZATION ENGINE ---
     total_gen = solar_cap + wind_cap
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
     w_pct = wind_cap / total_gen if total_gen > 0 else 0.5
@@ -86,7 +86,7 @@ with tab1:
     st.subheader("🎯 Hybrid Optimization Engine")
     st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
     
-    # --- LIVE DATA ---
+    # --- LIVE PERFORMANCE ---
     st.markdown("---")
     st.subheader("📊 Live Power & Performance")
     curr_p = price_hist.iloc[-1]
@@ -96,7 +96,7 @@ with tab1:
     l2.metric("Miner Status", "OFF (Peak Supply)" if over_breakeven else "ON")
     l3.metric("Battery Status", "SUPPLYING GRID" if over_breakeven else ("CHARGING" if curr_p < 0 else "IDLE"))
 
-    # --- TAX ---
+    # --- TAX STRATEGY ---
     st.markdown("---")
     st.subheader("🏛️ Commercial Tax Strategy")
     tx1, tx2, tx3 = st.columns(3)
@@ -104,7 +104,7 @@ with tab1:
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
 
-    # --- LOGIC & CARDS ---
+    # --- CALCULATION ENGINE ---
     capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
     def get_metrics(m, b, itc):
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
@@ -130,6 +130,7 @@ with tab1:
         st.metric("Post-Tax IRR", f"{s_opt[4]:.1f}%")
         st.metric("Post-Tax ROI", f"{s_opt[5]:.2f} Yrs")
 
+    # --- EVOLUTION CARDS ---
     st.markdown("---")
     st.subheader("📋 Historical Performance Evolution")
     def draw_card(lbl, met, m_v, b_v, sub):
@@ -162,5 +163,5 @@ with tab2:
     st.write("""
     * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub' for negative prices (12.1% by 2025 vs 4.2% System-wide).
     * **The 2021 Uri Impact:** System-wide assets were more exposed to scarcity pricing than West Texas during Winter Storm Uri.
-    * **Solar Saturation:** The growth in the $0-$0.02 bracket is now a system-wide phenomenon, making the 'Hybrid' model a requirement.
+    * **Solar Saturation:** The growth in the $0-$0.02 bracket is now a system-wide phenomenon.
     """)
