@@ -7,7 +7,7 @@ import gridstatus
 from datetime import datetime, timedelta
 
 # --- 1. CORE SYSTEM CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Grid Alpha | Hybrid Intelligence")
+st.set_page_config(layout="wide", page_title="Hybrid OS | Grid Intelligence")
 
 DASHBOARD_PASSWORD = "123"
 BATT_COST_PER_MW = 897404.0 
@@ -52,8 +52,8 @@ def check_password():
     _, col_mid, _ = st.columns([1, 1, 1])
     with col_mid:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        st.markdown('<p class="main-title">Grid Alpha</p>', unsafe_allow_html=True)
-        st.markdown('<p class="sub-title">Hybrid Asset Optimization & Yield Analytics</p>', unsafe_allow_html=True)
+        st.markdown('<p class="main-title">Hybrid OS</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sub-title">Advanced Asset Optimization & Market Analytics</p>', unsafe_allow_html=True)
         
         pwd = st.text_input("Institutional Access Key", type="password")
         
@@ -62,13 +62,18 @@ def check_password():
                 st.session_state.password_correct = True
                 st.rerun()
             else:
-                st.error("Authentication Failed: Invalid Key")
+                st.error("Authentication Failed")
         st.markdown('</div>', unsafe_allow_html=True)
     return False
 
 if not check_password(): st.stop()
 
-# --- 3. GLOBAL DATASETS ---
+# --- 3. PERSISTENT SIDEBAR BRANDING ---
+st.sidebar.markdown("# Hybrid OS")
+st.sidebar.caption("v12.3 Deployment")
+st.sidebar.write("---")
+
+# --- 4. GLOBAL DATASETS ---
 TREND_DATA_WEST = {
     "Negative (<$0)":    {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02":       {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -105,30 +110,28 @@ def get_live_data():
 
 price_hist = get_live_data()
 
-# --- 4. DASHBOARD TABS ---
+# --- 5. DASHBOARD TABS ---
 t_evolution, t_tax, t_volatility = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
 with t_evolution:
-    st.markdown("### ⚙️ System Configuration")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        solar_cap = st.slider("Solar Capacity (MW)", 0, 1000, 100)
-        wind_cap = st.slider("Wind Capacity (MW)", 0, 1000, 100)
-    with c2:
-        m_cost = st.slider("Miner Price ($/TH)", 1.0, 50.0, 20.00)
-        m_eff = st.slider("Efficiency (J/TH)", 10.0, 35.0, 15.0)
-    with c3:
-        hp_cents = st.slider("Hashprice (¢/TH)", 1.0, 10.0, 4.0)
-        m_load_in = st.number_input("Starting Miner Load (MW)", value=0)
-        b_mw_in = st.number_input("Starting Battery Size (MW)", value=0)
-        breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
+    st.sidebar.markdown("### System Inputs")
+    solar_cap = st.sidebar.slider("Solar Capacity (MW)", 0, 1000, 100)
+    wind_cap = st.sidebar.slider("Wind Capacity (MW)", 0, 1000, 100)
+    m_cost = st.sidebar.slider("Miner Price ($/TH)", 1.0, 50.0, 20.00)
+    m_eff = st.sidebar.slider("Efficiency (J/TH)", 10.0, 35.0, 15.0)
+    hp_cents = st.sidebar.slider("Hashprice (¢/TH)", 1.0, 10.0, 4.0)
+    
+    st.markdown("### ⚙️ Institutional Configuration")
+    c1, c2 = st.columns(2)
+    m_load_in = c1.number_input("Current Miner Load (MW)", value=0)
+    b_mw_in = c2.number_input("Current Battery Size (MW)", value=0)
+    breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
 
     st.markdown("---")
     curr_p = price_hist.iloc[-1]
     total_gen = solar_cap + wind_cap
     l1, l2, l3 = st.columns(3)
     l1.metric("Current Market Price", f"${curr_p:.2f}/MWh")
-    l1.metric("Site Generation", f"{(total_gen * 0.358):.1f} MW")
     l2.metric("Miner Operational Status", "OFF (No Load)" if m_load_in == 0 else ("ACTIVE" if curr_p < breakeven else "INACTIVE"))
     ma_live = m_load_in * (breakeven - max(0, curr_p)) if (m_load_in > 0 and curr_p < breakeven) else 0
     ba_live = b_mw_in * curr_p if (b_mw_in > 0 and curr_p > breakeven) else 0
@@ -136,7 +139,7 @@ with t_evolution:
     l3.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
 
     st.markdown("---")
-    st.subheader("🎯 Hybrid Optimization Engine")
+    st.subheader("🎯 Optimization Engine")
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
     w_pct = wind_cap / total_gen if total_gen > 0 else 0.5
     ideal_m, ideal_b = int(total_gen * ((s_pct * 0.10) + (w_pct * 0.25))), int(total_gen * ((s_pct * 0.50) + (w_pct * 0.25)))
@@ -151,7 +154,7 @@ with t_evolution:
         idl_alpha = m_yield_yr + b_yield_yr
         st.metric("Annual Strategy Delta", f"${idl_alpha:,.0f}")
     with col_b:
-        fig = go.Figure(data=[go.Bar(name='Greenfield', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'), go.Bar(name='Grid Alpha Optimized', x=['Revenue'], y=[cur_rev + idl_alpha], marker_color='#1565C0')])
+        fig = go.Figure(data=[go.Bar(name='Greenfield', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'), go.Bar(name='Hybrid OS Optimized', x=['Revenue'], y=[cur_rev + idl_alpha], marker_color='#1565C0')])
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -160,7 +163,6 @@ with t_evolution:
     h1, h2, h3, h4, h5 = st.columns(5)
     dm, db = m_yield_yr / 365, b_yield_yr / 365
 
-    # --- UPDATED SPLIT LOGIC (Single New Line for Battery) ---
     def show_split(col, lbl, days, base):
         sc = (total_gen / 200); cr = (base * sc) * 0.65
         ma, ba = dm * days, db * days
@@ -168,7 +170,7 @@ with t_evolution:
             st.markdown(f"#### {lbl}")
             st.markdown(f"**Grid Baseline**")
             st.markdown(f"<h2 style='margin-bottom:0;'>${cr:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(ma + ba):,.0f} Potential Alpha</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(ma + ba):,.0f} Alpha Potential</p>", unsafe_allow_html=True)
             st.write(f" * ⛏️ Mining: `${ma:,.0f}`")
             st.write(f" * 🔋 Battery: `${ba:,.0f}`")
             st.write("---")
@@ -178,9 +180,6 @@ with t_evolution:
 
 with t_tax:
     st.subheader("🏛️ Institutional Tax Strategy")
-    with st.expander("📖 Financial Modeling Framework", expanded=True):
-        st.markdown("**1. Baseline**: Greenfield status (No Hybrid). **2. Optimized**: Target sizing before incentives. **3. Strategy**: Baseline + ITC/MACRS. **4. Full Alpha**: Target sizing + Full Tax Shields.")
-    st.write("---")
     tx1, tx2, tx3, tx4 = st.columns(4)
     itc_rate = (0.3 if tx1.checkbox("30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("10% Domestic Content", False) else 0) + tx3.selectbox("Underserved Bonus", [0.0, 0.1, 0.2])
     macrs_on = tx4.checkbox("Apply 100% MACRS Bonus", True)
@@ -212,7 +211,7 @@ with t_tax:
 
 with t_volatility:
     st.subheader("📈 Institutional Volatility Analysis")
-    st.markdown("#### West Zone (HB_WEST) Price Distribution")
+    st.markdown("#### West Zone Price Frequency")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
-    st.markdown("#### ERCOT System-Wide Distribution")
+    st.markdown("#### ERCOT System-Wide Price Frequency")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
