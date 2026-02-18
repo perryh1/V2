@@ -6,6 +6,13 @@ import requests
 import gridstatus
 from datetime import datetime, timedelta
 
+# --- DESKTOP LAYOUT OPTIMIZATION ---
+st.set_page_config(
+    page_title="Midland Hybrid Alpha",
+    layout="wide",  # Forces the app to use the full width of the desktop screen
+    initial_sidebar_state="collapsed"
+)
+
 # --- CONFIGURATION ---
 DASHBOARD_PASSWORD = "123"
 LAT, LONG = 31.997, -102.077
