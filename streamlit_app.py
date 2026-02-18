@@ -90,7 +90,7 @@ if not check_password(): st.stop()
 
 # --- 3. PERSISTENT SIDEBAR BRANDING ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v12.5 Deployment")
+st.sidebar.caption("v12.6 Deployment")
 st.sidebar.write("---")
 
 # --- 4. GLOBAL DATASETS ---
@@ -105,6 +105,19 @@ TREND_DATA_WEST = {
     "$0.15 - $0.25":    {"2021": 0.019, "2022": 0.010, "2023": 0.018, "2024": 0.019, "2025": 0.021},
     "$0.25 - $1.00":    {"2021": 0.011, "2022": 0.009, "2023": 0.019, "2024": 0.015, "2025": 0.010},
     "$1.00 - $5.00":    {"2021": 0.008, "2022": 0.002, "2023": 0.007, "2024": 0.006, "2025": 0.005}
+}
+
+TREND_DATA_SYSTEM = {
+    "Negative (<$0)":    {"2021": 0.004, "2022": 0.009, "2023": 0.015, "2024": 0.028, "2025": 0.042},
+    "$0 - $0.02":       {"2021": 0.112, "2022": 0.156, "2023": 0.201, "2024": 0.245, "2025": 0.288},
+    "$0.02 - $0.04":    {"2021": 0.512, "2022": 0.485, "2023": 0.422, "2024": 0.388, "2025": 0.355},
+    "$0.04 - $0.06":    {"2021": 0.215, "2022": 0.228, "2023": 0.198, "2024": 0.182, "2025": 0.165},
+    "$0.06 - $0.08":    {"2021": 0.091, "2022": 0.082, "2023": 0.077, "2024": 0.072, "2025": 0.068},
+    "$0.08 - $0.10":    {"2021": 0.032, "2022": 0.021, "2023": 0.031, "2024": 0.034, "2025": 0.036},
+    "$0.10 - $0.15":    {"2021": 0.012, "2022": 0.009, "2023": 0.018, "2024": 0.021, "2025": 0.023},
+    "$0.15 - $0.25":    {"2021": 0.008, "2022": 0.004, "2023": 0.012, "2024": 0.014, "2025": 0.016},
+    "$0.25 - $1.00":    {"2021": 0.004, "2022": 0.003, "2023": 0.016, "2024": 0.010, "2025": 0.004},
+    "$1.00 - $5.00":    {"2021": 0.010, "2022": 0.003, "2023": 0.010, "2024": 0.006, "2025": 0.003}
 }
 
 @st.cache_data(ttl=300)
@@ -162,8 +175,12 @@ with t_evolution:
         st.metric("Annual Strategy Delta", f"${idl_alpha:,.0f}")
     with col_b:
         cur_rev_base = (total_gen * 103250) * 0.65
-        fig = go.Figure(data=[go.Bar(name='Baseline', x=['Revenue'], y=[cur_rev_base], marker_color='#90CAF9'), go.Bar(name='Hybrid Optimized', x=['Revenue'], y=[cur_rev_base + idl_alpha], marker_color='#1565C0')])
-        fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
+        # ALIGNED COLOR PALETTE: Institutional Dark Gray and Corporate Blue
+        fig = go.Figure(data=[
+            go.Bar(name='Baseline', x=['Revenue'], y=[cur_rev_base], marker_color='#E0E0E0'),
+            go.Bar(name='Hybrid Optimized', x=['Revenue'], y=[cur_rev_base + idl_alpha], marker_color='#0052FF')
+        ])
+        fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -179,7 +196,6 @@ with t_evolution:
             st.markdown(f"**Grid Baseline**")
             st.markdown(f"<h2 style='margin-bottom:0;'>${cr:,.0f}</h2>", unsafe_allow_html=True)
             st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(ma + ba):,.0f} Alpha Potential</p>", unsafe_allow_html=True)
-            # Battery moved to single new line below mining
             st.write(f" * ⛏️ Mining: `${ma:,.0f}`")
             st.write(f" * 🔋 Battery: `${ba:,.0f}`")
             st.write("---")
@@ -191,8 +207,6 @@ with t_tax:
     st.subheader("🏛️ Institutional Tax Strategy")
     tx1, tx2, tx3, tx4 = st.columns(4)
     itc_rate = (0.3 if tx1.checkbox("30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("10% Domestic Content", False) else 0)
-    
-    # FIXED: Underserved Bonus now shows as percentage (e.g., 20% instead of 0.2)
     itc_u_val = tx3.selectbox("Underserved Bonus", [0.0, 0.1, 0.2], format_func=lambda x: f"{int(x*100)}%")
     itc_total = itc_rate + itc_u_val
     macrs_on = tx4.checkbox("Apply 100% MACRS Bonus", True)
@@ -208,6 +222,7 @@ with t_tax:
         irr, roi = (ma+ba)/nc*100 if nc > 0 else 0, nc/(ma+ba) if (ma+ba)>0 else 0
         return ma, ba, nc, irr, roi, m_c, b_c, iv, ms
 
+    cr_base_val = (total_gen * 103250) * 0.65
     c00, c10, c0t, c1t = get_metrics(m_load_in, b_mw_in, 0, False), get_metrics(ideal_m, ideal_b, 0, False), get_metrics(m_load_in, b_mw_in, itc_total, macrs_on), get_metrics(ideal_m, ideal_b, itc_total, macrs_on)
     ca, cb, cc, cd = st.columns(4)
     
@@ -221,7 +236,6 @@ with t_tax:
             if met[7] > 0 or met[8] > 0: st.write(f" * 🛡️ **Shields (ITC+MACRS):** :green[(`-${(met[7]+met[8]):,.0f}`)]")
             st.write("---")
             
-    cr_base_val = (total_gen * 103250) * 0.65 / 1  # For annual metric parity
     draw_card(ca, "1. Baseline", c00, m_load_in, b_mw_in, "Current Setup")
     draw_card(cb, "2. Optimized", c10, ideal_m, ideal_b, "Ideal Ratio")
     draw_card(cc, "3. Strategy", c0t, m_load_in, b_mw_in, "Incentivized")
@@ -229,5 +243,26 @@ with t_tax:
 
 with t_volatility:
     st.subheader("📈 Institutional Volatility Analysis")
-    st.markdown("#### West Zone Price Frequency")
-    st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
+    st.write("ERCOT’s grid is shifting toward a **binary state** of extreme excess or scarcity. This volatility spread favors hybrid assets over pure generators.")
+    
+    # DUAL TABLES RESTORED
+    v_c1, v_c2 = st.columns(2)
+    with v_c1:
+        st.markdown("#### West Zone (HB_WEST) Distribution")
+        st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
+    with v_c2:
+        st.markdown("#### ERCOT System-Wide Distribution")
+        st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+        
+    st.markdown("---")
+    st.subheader("🧐 Strategic Summary")
+    st.write("""
+    * **Lower Bound Expansion:** Sub-2¢ pricing is now a system-wide trend. HB_WEST negative frequency is projected to hit **12.1%** by 2025—3x the system average.
+    * **Scarcity Optimization:** Late afternoon 'Duck Curve' drop-offs cause scarcity spikes, often exceeding $1.00/kWh. This is the primary revenue driver for **Battery Alpha**.
+    """)
+    st.table(pd.DataFrame({
+        "Price Category": ["Negative (<$0)", "$0 - $0.02", "High ($1.00+)"],
+        "2021 Frequency (West)": ["2.1%", "18.2%", "0.8%"],
+        "2025 Frequency (West)": ["12.1%", "33.5%", "0.5% (Proj)"],
+        "Strategic Pivot": ["Mining Alpha", "Fuel Saturation", "Battery Alpha"]
+    }).set_index("Price Category"))
