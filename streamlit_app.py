@@ -6,15 +6,69 @@ import requests
 import gridstatus
 from datetime import datetime, timedelta
 
-# --- 1. DESKTOP WIDE MODE & APP CONFIG ---
-st.set_page_config(layout="wide", page_title="Midland Hybrid Alpha")
+# --- 1. CORE SYSTEM CONFIGURATION ---
+st.set_page_config(layout="wide", page_title="Grid Alpha | Hybrid Intelligence")
 
-# --- CONFIGURATION ---
 DASHBOARD_PASSWORD = "123"
-LAT, LONG = 31.997, -102.077
 BATT_COST_PER_MW = 897404.0 
+CORP_TAX_RATE = 0.21 
 
-# --- DATASETS (2¢ INTERVALS) ---
+# --- 2. EXECUTIVE AUTHENTICATION PORTAL ---
+if "password_correct" not in st.session_state: 
+    st.session_state.password_correct = False
+
+def check_password():
+    if st.session_state.password_correct: return True
+    
+    st.markdown("""
+        <style>
+        .stApp { background-color: #f8f9fa; }
+        .login-container {
+            max-width: 450px;
+            margin: 100px auto;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+            border: 1px solid #e0e0e0;
+        }
+        .main-title {
+            color: #1a1a1a;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 28px;
+            margin-bottom: 4px;
+        }
+        .sub-title {
+            color: #6c757d;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    _, col_mid, _ = st.columns([1, 1, 1])
+    with col_mid:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        st.markdown('<p class="main-title">Grid Alpha</p>', unsafe_allow_html=True)
+        st.markdown('<p class="sub-title">Hybrid Asset Optimization & Yield Analytics</p>', unsafe_allow_html=True)
+        
+        pwd = st.text_input("Institutional Access Key", type="password")
+        
+        if st.button("Authenticate Session", use_container_width=True, type="primary"):
+            if pwd == DASHBOARD_PASSWORD:
+                st.session_state.password_correct = True
+                st.rerun()
+            else:
+                st.error("Authentication Failed: Invalid Key")
+        st.markdown('</div>', unsafe_allow_html=True)
+    return False
+
+if not check_password(): st.stop()
+
+# --- 3. GLOBAL DATASETS ---
 TREND_DATA_WEST = {
     "Negative (<$0)":    {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02":       {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -41,20 +95,6 @@ TREND_DATA_SYSTEM = {
     "$1.00 - $5.00":    {"2021": 0.010, "2022": 0.003, "2023": 0.010, "2024": 0.006, "2025": 0.003}
 }
 
-# --- 2. AUTHENTICATION ---
-if "password_correct" not in st.session_state: st.session_state.password_correct = False
-def check_password():
-    if st.session_state.password_correct: return True
-    st.title("⚡ Midland Hybrid Alpha")
-    pwd = st.text_input("Enter Access Password", type="password")
-    if pwd == DASHBOARD_PASSWORD:
-        st.session_state.password_correct = True
-        st.rerun()
-    return False
-
-if not check_password(): st.stop()
-
-# --- 3. LIVE DATA ---
 @st.cache_data(ttl=300)
 def get_live_data():
     try:
@@ -65,10 +105,10 @@ def get_live_data():
 
 price_hist = get_live_data()
 
-# --- 4. APP TABS ---
-tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
+# --- 4. DASHBOARD TABS ---
+t_evolution, t_tax, t_volatility = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
-with tab1:
+with t_evolution:
     # --- CONFIGURATION ---
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
@@ -76,30 +116,28 @@ with tab1:
         solar_cap = st.slider("Solar Capacity (MW)", 0, 1000, 100)
         wind_cap = st.slider("Wind Capacity (MW)", 0, 1000, 100)
     with c2:
-        m_cost = st.slider("Miner Cost ($/TH)", 1.0, 50.0, 18.20)
-        m_eff = st.slider("Efficiency (J/TH)", 10.0, 35.0, 28.0)
+        m_cost = st.slider("Miner Price ($/TH)", 1.0, 50.0, 20.00)
+        m_eff = st.slider("Efficiency (J/TH)", 10.0, 35.0, 15.0)
     with c3:
         hp_cents = st.slider("Hashprice (¢/TH)", 1.0, 10.0, 4.0)
-        m_load_input = st.number_input("Starting Miner Load (MW)", value=0)
-        batt_mw_input = st.number_input("Starting Battery Size (MW)", value=0)
+        m_load_in = st.number_input("Starting Miner Load (MW)", value=0)
+        b_mw_in = st.number_input("Starting Battery Size (MW)", value=0)
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
-        st.markdown(f"#### Miner Breakeven: **${breakeven:.2f}/MWh**")
 
-    # --- LIVE PERFORMANCE ---
+    # --- LIVE DATA ---
     st.markdown("---")
-    st.subheader("📊 Live Power & Performance")
     curr_p = price_hist.iloc[-1]
     total_gen = solar_cap + wind_cap
     l1, l2, l3 = st.columns(3)
-    l1.metric("Current Grid Price", f"${curr_p:.2f}/MWh")
-    l1.metric("Total Generation", f"{(total_gen * 0.358):.1f} MW")
-    l2.metric("Miner Status", "OFF (No Load)" if m_load_input == 0 else ("ON" if curr_p < breakeven else "OFF"))
-    ma_live = m_load_input * (breakeven - max(0, curr_p)) if (m_load_input > 0 and curr_p < breakeven) else 0
-    ba_live = batt_mw_input * curr_p if (batt_mw_input > 0 and curr_p > breakeven) else 0
-    st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
-    st.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
+    l1.metric("Current Market Price", f"${curr_p:.2f}/MWh")
+    l1.metric("Site Generation", f"{(total_gen * 0.358):.1f} MW")
+    l2.metric("Miner Operational Status", "OFF (No Load)" if m_load_in == 0 else ("ACTIVE" if curr_p < breakeven else "INACTIVE"))
+    ma_live = m_load_in * (breakeven - max(0, curr_p)) if (m_load_in > 0 and curr_p < breakeven) else 0
+    ba_live = b_mw_in * curr_p if (b_mw_in > 0 and curr_p > breakeven) else 0
+    l3.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
+    l3.metric("Battery Alpha", f"${ba_live:,.2f}/hr")
 
-    # --- OPTIMIZATION ENGINE ---
+    # --- OPTIMIZATION ---
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
@@ -108,88 +146,72 @@ with tab1:
     
     col_a, col_b = st.columns([1, 2])
     with col_a:
-        st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
-        capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
-        mining_yield_annual = (capture_2025 * 8760 * ideal_m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-        battery_yield_annual = (0.12 * 8760 * ideal_b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
+        st.write(f"**Target Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
+        cap_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
+        m_yield_yr = (cap_2025 * 8760 * ideal_m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
+        b_yield_yr = (0.12 * 8760 * ideal_b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         cur_rev = (total_gen * 103250) * 0.65
-        idl_total_alpha = mining_yield_annual + battery_yield_annual
-        idl_rev = cur_rev + idl_total_alpha
-        st.metric("Annual Optimization Delta", f"${idl_total_alpha:,.0f}", delta=f"{(idl_total_alpha/cur_rev*100 if cur_rev > 0 else 100):.1f}% Upside")
+        idl_alpha = m_yield_yr + b_yield_yr
+        st.metric("Annual Strategy Delta", f"${idl_alpha:,.0f}")
     with col_b:
-        fig = go.Figure(data=[go.Bar(name='Current (Greenfield)', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'), go.Bar(name='Ideal Optimized', x=['Revenue'], y=[idl_rev], marker_color='#1565C0')])
+        fig = go.Figure(data=[go.Bar(name='Greenfield', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'), go.Bar(name='Grid Alpha Optimized', x=['Revenue'], y=[cur_rev + idl_alpha], marker_color='#1565C0')])
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- CUMULATIVE ALPHA ---
+    # --- HISTORICAL ---
     st.markdown("---")
-    st.subheader("📅 Historical Performance (Alpha Revenue Split)")
-    daily_m_a, daily_b_a = mining_yield_annual / 365, battery_yield_annual / 365
-    def show_split_cum(col, label, days, base_rev):
-        scale_f = (total_gen / 200); c_total = (base_rev * scale_f) * 0.65
-        m_a, b_a = daily_m_a * days, daily_b_a * days
-        o_total = c_total + m_a + b_a
-        with col:
-            st.markdown(f"#### {label}")
-            st.markdown(f"**Grid Base Revenue**")
-            st.markdown(f"<h2 style='margin-bottom:0;'>${c_total:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"**Optimized Hybrid Total**")
-            st.markdown(f"<h2 style='color:#1565C0; margin-bottom:0;'>${o_total:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(m_a + b_a):,.0f} Alpha Potential</p>", unsafe_allow_html=True)
-            st.write(f" * ⛏️ **Mining:** :green[${m_a:,.0f}] | 🔋 **Battery:** :green[${b_a:,.0f}]")
-            st.write("---")
-
+    st.subheader("📅 Historical Alpha Potential (Revenue Split)")
     h1, h2, h3, h4, h5 = st.columns(5)
-    show_split_cum(h1, "Last 24 Hours", 1, 101116); show_split_cum(h2, "Last 7 Days", 7, 704735)
-    show_split_cum(h3, "Last 30 Days", 30, 3009339); show_split_cum(h4, "6 Months", 182, 13159992)
-    show_split_cum(h5, "Last 1 Year", 365, 26469998)
+    dm, db = m_yield_yr / 365, b_yield_yr / 365
+    def show_split(col, lbl, days, base):
+        sc = (total_gen / 200); cr = (base * sc) * 0.65
+        ma, ba = dm * days, db * days
+        with col:
+            st.markdown(f"#### {lbl}")
+            st.markdown(f"**Grid Baseline**")
+            st.markdown(f"<h2 style='margin-bottom:0;'>${cr:,.0f}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(ma + ba):,.0f} Potential Alpha</p>", unsafe_allow_html=True)
+            st.write(f" * ⛏️ Mining: `${ma:,.0f}` | 🔋 Battery: `${ba:,.0f}`")
+    show_split(h1, "24H", 1, 101116); show_split(h2, "7D", 7, 704735); show_split(h3, "30D", 30, 3009339)
+    show_split(h4, "6M", 182, 13159992); show_split(h5, "1Y", 365, 26469998)
 
-with tab2:
-    st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
-    with st.expander("📖 Explain These 4 Financial Stages", expanded=True):
-        g1, g2 = st.columns(2)
-        with g1: st.markdown("**1. Pre-Opt (Baseline)**: Greenfield 'as-is' site. Control group.\n\n**2. Opt (Pre-Tax)**: Ideal ratios before incentives.")
-        with g2: st.markdown("**3. Current (Post-Tax)**: Plan with IRA incentives. ITC/Bonuses.\n\n**4. Opt (Post-Tax)**: Final state. Maximum yield.")
+with t_tax:
+    st.subheader("🏛️ Institutional Tax Strategy")
+    with st.expander("📖 Financial Modeling Framework", expanded=True):
+        st.markdown("**1. Baseline**: Greenfield status (No Hybrid). **2. Optimized**: Target sizing before incentives. **3. Strategy**: Baseline + ITC/MACRS. **4. Full Alpha**: Target sizing + Full Tax Shields.")
     st.write("---")
-    tx1, tx2, tx3 = st.columns(3)
-    t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
-    li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
-    t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
+    tx1, tx2, tx3, tx4 = st.columns(4)
+    itc_rate = (0.3 if tx1.checkbox("30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("10% Domestic Content", False) else 0) + tx3.selectbox("Underserved Bonus", [0.0, 0.1, 0.2])
+    macrs_on = tx4.checkbox("Apply 100% MACRS Bonus", True)
 
-    def get_metrics(m, b, itc):
-        ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
+    def get_metrics(m, b, itc_v, mc_on):
+        ma = (cap_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
         ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
-        base = (solar_cap * 82500 + wind_cap * 124000)
-        m_cap = ((m * 1e6) / m_eff) * m_cost
-        b_cap = b * BATT_COST_PER_MW
-        net = m_cap + (b_cap * (1 - itc))
-        irr, roi = (ma+ba)/net*100 if net > 0 else 0, net/(ma+ba) if (ma+ba)>0 else 0
-        return ma, ba, base, net, irr, roi, m_cap, b_cap
+        base_g = (solar_cap * 82500 + wind_cap * 124000)
+        m_c = ((m * 1e6) / m_eff) * m_cost
+        b_c = b * BATT_COST_PER_MW
+        iv = b_c * itc_v
+        ms = ((m_c + b_c) - (0.5 * iv)) * CORP_TAX_RATE if mc_on else 0
+        nc = (m_c + b_c) - iv - ms
+        irr, roi = (ma+ba)/nc*100 if nc > 0 else 0, nc/(ma+ba) if (ma+ba)>0 else 0
+        return ma, ba, base_g, nc, irr, roi, m_c, b_c, iv, ms
 
-    s00, s10, s0t, s1t = get_metrics(m_load_input, batt_mw_input, 0), get_metrics(ideal_m, ideal_b, 0), get_metrics(m_load_input, batt_mw_input, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
-
+    c00, c10, c0t, c1t = get_metrics(m_load_in, b_mw_in, 0, False), get_metrics(ideal_m, ideal_b, 0, False), get_metrics(m_load_in, b_mw_in, itc_rate, macrs_on), get_metrics(ideal_m, ideal_b, itc_rate, macrs_on)
     ca, cb, cc, cd = st.columns(4)
     def draw_card(col, lbl, met, m_v, b_v, sub):
         with col:
             st.write(f"### {lbl}"); st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
             st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${(met[0]+met[1]+met[2]):,.0f}</h1>", unsafe_allow_html=True)
-            st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Yrs**")
-            st.write(f" * ⚡ Grid Base: `${met[2]:,.0f}`")
-            st.write(f" * ⛏️ Mining Alpha: `${met[0]:,.0f}`")
-            st.write(f" * 🔋 Battery Alpha: `${met[1]:,.0f}`")
-            st.write(f" * ⚙️ Miner Capex: `${met[6]:,.0f}`")
-            st.write(f" * 🔋 Battery Capex (Pre-Tax): `${met[7]:,.0f}`")
+            st.markdown(f"**↑ IRR: {met[4]:.1f}% | Payback: {met[5]:.2f} Y**")
+            st.write(f" * ⚙️ Miner Capex: `${met[6]:,.0f}` | 🔋 Battery Capex: `${met[7]:,.0f}`")
+            if met[8] > 0 or met[9] > 0: st.write(f" * 🛡️ **Shields (ITC+MACRS):** :green[(`-${(met[8]+met[9]):,.0f}`)]")
             st.write("---")
+    draw_card(ca, "1. Baseline", c00, m_load_in, b_mw_in, "Current Setup"); draw_card(cb, "2. Optimized", c10, ideal_m, ideal_b, "Ideal Ratio")
+    draw_card(cc, "3. Strategy", c0t, m_load_in, b_mw_in, "Incentivized Setup"); draw_card(cd, "4. Full Alpha", c1t, ideal_m, ideal_b, "Institutional Strategy")
 
-    draw_card(ca, "1. Pre-Opt", s00, m_load_input, batt_mw_input, "Current/No Tax")
-    draw_card(cb, "2. Opt (Pre-Tax)", s10, ideal_m, ideal_b, "Ideal/No Tax")
-    draw_card(cc, "3. Current (Post-Tax)", s0t, m_load_input, batt_mw_input, "Current/Full Tax")
-    draw_card(cd, "4. Opt (Post-Tax)", s1t, ideal_m, ideal_b, "Ideal/Full Tax")
-
-with tab3:
-    st.subheader("📈 Long-Term Volatility")
-    st.markdown("#### 1. West Texas (HB_WEST) Price Frequency")
+with t_volatility:
+    st.subheader("📈 Institutional Volatility Analysis")
+    st.markdown("#### West Zone (HB_WEST) Price Distribution")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
-    st.markdown("#### 2. ERCOT System-Wide Price Frequency")
+    st.markdown("#### ERCOT System-Wide Distribution")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
-    
