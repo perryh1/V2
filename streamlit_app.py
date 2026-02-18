@@ -240,7 +240,7 @@ with t_volatility:
         st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
     
     st.markdown("---")
-    st.subheader("🧐 Strategic Pivot Windows")
+    st.subheader("Strategic Pivot Windows")
     st.table(pd.DataFrame({
         "Price Category": ["Negative (<$0)", "$0 - $0.02", "High ($1.00+)"],
         "2021 Frequency (West)": ["2.1%", "18.2%", "0.8%"],
