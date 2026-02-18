@@ -14,7 +14,7 @@ DASHBOARD_PASSWORD = "123"
 LAT, LONG = 31.997, -102.077
 BATT_COST_PER_MW = 897404.0 
 
-# --- DATASETS (2¢ INTERVALS) ---
+# --- DATASETS ---
 TREND_DATA_WEST = {
     "Negative (<$0)":    {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
     "$0 - $0.02":       {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -65,11 +65,10 @@ def get_live_data():
 price_hist = get_live_data()
 
 # --- APP TABS ---
-# Tabs 2 and 3 have been swapped per user request
 tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
 with tab1:
-    # --- 1. SYSTEM CONFIGURATION ---
+    # 1. SYSTEM CONFIGURATION
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -82,7 +81,7 @@ with tab1:
         breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
         st.markdown(f"#### Breakeven Floor: **${breakeven:.2f}/MWh**")
 
-    # --- 2. HYBRID OPTIMIZATION ENGINE ---
+    # 2. HYBRID OPTIMIZATION ENGINE
     st.markdown("---")
     st.subheader("🎯 Hybrid Optimization Engine")
     total_gen = solar_cap + wind_cap
@@ -108,10 +107,9 @@ with tab1:
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 3. HISTORICAL PERFORMANCE ---
+    # 3. HISTORICAL PERFORMANCE
     st.markdown("---")
     st.subheader("📅 Historical Performance (Cumulative Alpha)")
-    
     def show_cum(col, label, total, alpha, grid, mine, batt):
         with col:
             st.markdown(f"#### {label}")
@@ -130,14 +128,42 @@ with tab1:
     show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
 with tab2:
-    # --- 4. TAX STRATEGY LOGIC (NOW TAB 2) ---
+    # 4. TAX STRATEGY & DEFINITIONS (MOVED DEFINITIONS HERE)
     st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
+    
+    # Financial Evolution Glossary
+    with st.expander("📖 Explain These 4 Stages"):
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            st.markdown("""
+            **1. Pre-Opt (Baseline)**
+            * **Setup:** Uses the exact Miner MW and Battery MW currently entered in the sliders.
+            * **Taxes:** Assumes zero tax credits or government incentives.
+            * **Purpose:** Serves as the "Control" group to show raw site performance.
+
+            **2. Opt (Pre-Tax)**
+            * **Setup:** Automatically adjusts to the "Ideal Sizing" calculated by the app's internal logic.
+            * **Taxes:** Still assumes zero tax incentives.
+            * **Purpose:** Isolates the value of Capital Allocation and hardware ratios.
+            """)
+        with col_g2:
+            st.markdown("""
+            **3. Current (Post-Tax)**
+            * **Setup:** Reverts to your original Miner and Battery MW slider inputs.
+            * **Taxes:** Applies the ITC and selected bonuses (Domestic Content, Underserved Communities).
+            * **Purpose:** Shows how government incentives improve IRR without changing hardware.
+
+            **4. Opt (Post-Tax) — The "Alpha" State**
+            * **Setup:** Uses the Ideal Sizing recommended by the Optimization Engine.
+            * **Taxes:** Applies the full Tax Strategy (ITC + Bonuses) to net cost.
+            * **Purpose:** Represents maximum potential, combining physical and financial efficiency.
+            """)
+
+    st.write("---")
     tx1, tx2, tx3 = st.columns(3)
     t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
-
-    capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
 
     def get_metrics(m, b, itc):
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
@@ -146,7 +172,7 @@ with tab2:
         net = ((m*1e6)/m_eff)*m_cost + (b*BATT_COST_PER_MW*(1-itc))
         irr = (ma + ba) / net * 100 if net > 0 else 0
         roi = net / (ma + ba) if (ma + ba) > 0 else 0
-        return ma, ba, base, net, irr, roi, ((m*1e6)/m_eff)*m_cost, b*BATT_COST_PER_MW
+        return ma, ba, base, net, irr, roi
 
     s_cur, s_opt = get_metrics(35, batt_mw, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
     
@@ -168,8 +194,7 @@ with tab2:
     draw_card(cd, "4. Opt (Post-Tax)", s_opt, ideal_m, ideal_b, "Ideal/Full Tax")
 
 with tab3:
-    # --- 5. VOLATILITY DATA (NOW TAB 3) ---
-    st.subheader("📈 5-Year Price Frequency Dataset")
+    st.subheader("📈 Long-Term Volatility")
     st.markdown("#### 1. West Texas (HB_WEST)")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
     st.markdown("#### 2. ERCOT System-Wide Average")
@@ -177,7 +202,7 @@ with tab3:
     st.markdown("---")
     st.subheader("🧐 Strategic Trend Analysis")
     st.write("""
-    * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub' for negative prices (12.1% by 2025 vs 4.2% System-wide). This confirms that behind-the-meter (BTM) miners in the West are capturing nearly 3x the 'free fuel' of the broader grid.
-    * **The 2021 Uri Impact:** System-wide assets were more exposed to scarcity pricing than West Texas during Winter Storm Uri.
-    * **Solar Saturation:** The growth in the $0-$0.02 bracket is now a system-wide phenomenon.
+    * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub' for negative prices.
+    * **The 2021 Uri Impact:** System-wide assets were more exposed to scarcity pricing than West Texas.
+    * **Solar Saturation:** Growth in the low price bracket is now a system-wide phenomenon.
     """)
