@@ -93,12 +93,12 @@ with tab1:
         ma_factor = 1.0 + (w_pct * 0.20)
         ba_factor = 1.0 + (s_pct * 0.25)
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * ma_factor
-        # Battery supplies grid when price > breakeven
         ba = (0.12 * 8760 * b * (breakeven + 30)) * ba_factor
         base = (solar_cap * 82500 + wind_cap * 124000)
         net = ((m*1e6)/m_eff)*m_cost + (b*BATT_COST_PER_MW*(1-itc_r))
         irr = (ma + ba) / net * 100 if net > 0 else 0
-        return ma, ba, base, net, irr
+        roi = net / (ma + ba) if (ma + ba) > 0 else 0
+        return ma, ba, base, net, irr, roi
 
     s1, s2, s3, s4 = get_stage_metrics(35, batt_mw, 0), get_stage_metrics(ideal_m, ideal_b, 0), get_stage_metrics(35, batt_mw, 0.3), get_stage_metrics(ideal_m, ideal_b, 0.3)
     
@@ -120,7 +120,22 @@ with tab1:
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
 
-    # --- EVOLUTION CARDS WITH SPLIT ALPHA ---
+    # --- SPLIT FINANCIAL COMPARISON ---
+    st.markdown("---")
+    st.subheader("💰 Post-Tax Financial Comparison")
+    cl1, cl2 = st.columns(2)
+    with cl1:
+        st.write("#### 1. Current Setup (Post-Tax)")
+        # Display IRR and ROI
+        st.metric("Post-Tax IRR", f"{get_stage_metrics(35, batt_mw, t_rate)[4]:.1f}%")
+        st.metric("Post-Tax ROI", f"{get_stage_metrics(35, batt_mw, t_rate)[5]:.2f} Yrs")
+    with cl2:
+        st.write("#### 2. Optimized Setup (Post-Tax)")
+        # Display IRR and ROI
+        st.metric("Post-Tax IRR", f"{get_stage_metrics(ideal_m, ideal_b, t_rate)[4]:.1f}%")
+        st.metric("Post-Tax ROI", f"{get_stage_metrics(ideal_m, ideal_b, t_rate)[5]:.2f} Yrs")
+
+    # --- EVOLUTION CARDS ---
     st.markdown("---")
     st.subheader("📋 Historical Performance Evolution")
     def draw_card(lbl, met, m_v, b_v, sub):
@@ -128,7 +143,8 @@ with tab1:
         st.caption(f"{sub} ({m_v}MW / {b_v}MW)")
         total = met[0] + met[1] + met[2]
         st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${total:,.0f}</h1>", unsafe_allow_html=True)
-        st.markdown(f"**↑ ${met[0]+met[1]:,.0f} Alpha | {met[4]:.1f}% IRR**")
+        # ROI and IRR side by side
+        st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Yrs**")
         st.write(f"* ⛏️ Mining Alpha: `${met[0]:,.0f}`")
         st.write(f"* 🔋 Battery Alpha: `${met[1]:,.0f}`")
         st.write(f"* ⚡ Grid Base: `${met[2]:,.0f}`")
@@ -144,13 +160,5 @@ with tab2:
     st.subheader("📈 5-Year Price Frequency Dataset")
     st.markdown("#### 1. West Texas (HB_WEST)")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
-    
     st.markdown("#### 2. ERCOT System-Wide Average")
     st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
-    
-    st.markdown("---")
-    st.subheader("🧐 Strategic Trend Analysis")
-    st.write("""
-    * **The BTM Edge:** HB_WEST shows nearly 3x the 'Free Fuel' hours (12.1%) compared to the System Average (4.2%) by 2025. This justifies the co-location strategy specifically in the Permian.
-    * **Regional Value Divergence:** While West Texas is superior for miners, the System Average shows more lucrative scarcity spikes for batteries, confirming the 'Grid Producer' role of storage outside the Permian.
-    """)
