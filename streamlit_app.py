@@ -65,8 +65,8 @@ def get_live_data():
 price_hist = get_live_data()
 
 # --- APP TABS ---
-# Renamed Tab 3 per user request
-tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "📈 Long-Term Volatility", "🏛️ Tax Optimized Hardware"])
+# Tabs 2 and 3 have been swapped per user request
+tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
 with tab1:
     # --- 1. SYSTEM CONFIGURATION ---
@@ -130,19 +130,14 @@ with tab1:
     show_cum(h5, "Last 1 Year", 26469998, 5819998, 20650000, 3119998, 2700000)
 
 with tab2:
-    st.subheader("📈 5-Year Price Frequency Dataset")
-    st.markdown("#### 1. West Texas (HB_WEST)")
-    st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
-    st.markdown("#### 2. ERCOT System-Wide Average")
-    st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
-
-with tab3:
-    # --- 5. TAX STRATEGY LOGIC ---
+    # --- 4. TAX STRATEGY LOGIC (NOW TAB 2) ---
     st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
     tx1, tx2, tx3 = st.columns(3)
     t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
     li_choice = tx3.selectbox("Underserved Bonus", ["None", "10% Bonus", "20% Bonus"])
     t_rate += (0.1 if "10%" in li_choice else (0.2 if "20%" in li_choice else 0))
+
+    capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
 
     def get_metrics(m, b, itc):
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
@@ -171,3 +166,18 @@ with tab3:
     draw_card(cb, "2. Opt (Pre-Tax)", get_metrics(ideal_m, ideal_b, 0), ideal_m, ideal_b, "Ideal/No Tax")
     draw_card(cc, "3. Current (Post-Tax)", s_cur, 35, batt_mw, "Current/Full Tax")
     draw_card(cd, "4. Opt (Post-Tax)", s_opt, ideal_m, ideal_b, "Ideal/Full Tax")
+
+with tab3:
+    # --- 5. VOLATILITY DATA (NOW TAB 3) ---
+    st.subheader("📈 5-Year Price Frequency Dataset")
+    st.markdown("#### 1. West Texas (HB_WEST)")
+    st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
+    st.markdown("#### 2. ERCOT System-Wide Average")
+    st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+    st.markdown("---")
+    st.subheader("🧐 Strategic Trend Analysis")
+    st.write("""
+    * **Negative Pricing Spread:** HB_WEST remains the 'Alpha Hub' for negative prices (12.1% by 2025 vs 4.2% System-wide). This confirms that behind-the-meter (BTM) miners in the West are capturing nearly 3x the 'free fuel' of the broader grid.
+    * **The 2021 Uri Impact:** System-wide assets were more exposed to scarcity pricing than West Texas during Winter Storm Uri.
+    * **Solar Saturation:** The growth in the $0-$0.02 bracket is now a system-wide phenomenon.
+    """)
