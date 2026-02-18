@@ -69,7 +69,7 @@ price_hist = get_live_data()
 tab1, tab2, tab3 = st.tabs(["📊 Performance Evolution", "🏛️ Tax Optimized Hardware", "📈 Long-Term Volatility"])
 
 with tab1:
-    # 1. SYSTEM CONFIGURATION (DEFAULTED TO GREENFIELD)
+    # 1. SYSTEM CONFIGURATION
     st.markdown("### ⚙️ System Configuration")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -80,7 +80,6 @@ with tab1:
         m_eff = st.slider("Efficiency (J/TH)", 10.0, 35.0, 28.0)
     with c3:
         hp_cents = st.slider("Hashprice (¢/TH)", 1.0, 10.0, 4.0)
-        # Defaulting starting hardware to 0 MW per user request
         m_load_input = st.number_input("Starting Miner Load (MW)", value=0)
         batt_mw_input = st.number_input("Starting Battery Size (MW)", value=0)
         
@@ -98,7 +97,6 @@ with tab1:
     l1.metric("Total Generation", f"{(total_gen * 0.358):.1f} MW")
     l2.metric("Miner Status", "OFF (No Load)" if m_load_input == 0 else ("ON" if curr_p < breakeven else "OFF"))
     
-    # Live alpha calculation based on starting hardware
     ma_live = m_load_input * (breakeven - max(0, curr_p)) if (m_load_input > 0 and curr_p < breakeven) else 0
     ba_live = batt_mw_input * curr_p if (batt_mw_input > 0 and curr_p > breakeven) else 0
     st.metric("Mining Alpha", f"${ma_live:,.2f}/hr")
@@ -116,61 +114,65 @@ with tab1:
         st.write(f"**Ideal Sizing:** {ideal_m}MW Miners | {ideal_b}MW Battery")
         capture_2025 = TREND_DATA_WEST["Negative (<$0)"]["2025"] + TREND_DATA_WEST["$0 - $0.02"]["2025"]
         
-        def get_simple_rev(m, b):
-            ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
-            ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
-            return ma + ba
-
-        cur_rev = get_simple_rev(m_load_input, batt_mw_input)
-        idl_rev = get_simple_rev(ideal_m, ideal_b)
-        st.metric("Annual Optimization Delta", f"${(idl_rev - cur_rev):,.0f}", delta=f"{((idl_rev - cur_rev)/cur_rev*100 if cur_rev > 0 else 100):.1f}% Upside")
+        # Revenue Split Logic
+        mining_yield_annual = (capture_2025 * 8760 * ideal_m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
+        battery_yield_annual = (0.12 * 8760 * ideal_b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
+        
+        cur_rev = (total_gen * 103250) * 0.65 # Simple base estimate
+        idl_total_alpha = mining_yield_annual + battery_yield_annual
+        idl_rev = cur_rev + idl_total_alpha
+        
+        st.metric("Annual Optimization Delta", f"${idl_total_alpha:,.0f}", delta=f"{(idl_total_alpha/cur_rev*100 if cur_rev > 0 else 100):.1f}% Upside")
     with col_b:
         fig = go.Figure(data=[
-            go.Bar(name='Current (0MW Hybrid)', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'),
+            go.Bar(name='Current (Greenfield)', x=['Revenue'], y=[cur_rev], marker_color='#90CAF9'),
             go.Bar(name='Ideal Optimized', x=['Revenue'], y=[idl_rev], marker_color='#1565C0')
         ])
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 4. DYNAMIC HISTORICAL PERFORMANCE
+    # 4. DYNAMIC HISTORICAL PERFORMANCE WITH EARNINGS SPLIT
     st.markdown("---")
-    st.subheader("📅 Historical Performance (Greenfield vs. Optimized Comparison)")
+    st.subheader("📅 Historical Performance (Alpha Revenue Split)")
     
-    annual_upside = idl_rev - cur_rev
-    daily_upside = annual_upside / 365
+    daily_mine_alpha = mining_yield_annual / 365
+    daily_batt_alpha = battery_yield_annual / 365
 
-    def show_dynamic_cum(col, label, days, base_rev):
-        # Scale factor based on 100MW Wind + 100MW Solar baseline
+    def show_split_cum(col, label, days, base_rev):
         scale_factor = (total_gen / 200) 
-        current_total = (base_rev * scale_factor) * 0.65 # Only grid base revenue recognized
-        opt_total = current_total + (daily_upside * days)
-        upside_pct = (opt_total - current_total) / current_total * 100 if current_total > 0 else 0
+        current_total = (base_rev * scale_factor) * 0.65
+        
+        m_alpha = daily_mine_alpha * days
+        b_alpha = daily_batt_alpha * days
+        total_alpha = m_alpha + b_alpha
+        opt_total = current_total + total_alpha
         
         with col:
             st.markdown(f"#### {label}")
-            st.markdown(f"**Current Grid Revenue**")
+            st.markdown(f"**Grid Base Revenue**")
             st.markdown(f"<h2 style='margin-bottom:0;'>${current_total:,.0f}</h2>", unsafe_allow_html=True)
             st.markdown(f"**Optimized Hybrid Total**")
             st.markdown(f"<h2 style='color:#1565C0; margin-bottom:0;'>${opt_total:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#28a745;'>↑ ${ (opt_total - current_total):,.0f} Alpha Potential</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${total_alpha:,.0f} Alpha Potential</p>", unsafe_allow_html=True)
+            st.write(f" * ⛏️ **Mining:** :green[${m_alpha:,.0f}]")
+            st.write(f" * 🔋 **Battery:** :green[${b_alpha:,.0f}]")
             st.write("---")
 
     h1, h2, h3, h4, h5 = st.columns(5)
-    show_dynamic_cum(h1, "Last 24 Hours", 1, 101116)
-    show_dynamic_cum(h2, "Last 7 Days", 7, 704735)
-    show_dynamic_cum(h3, "Last 30 Days", 30, 3009339)
-    show_dynamic_cum(h4, "6 Months", 182, 13159992)
-    show_dynamic_cum(h5, "1 Year", 365, 26469998)
+    show_split_cum(h1, "Last 24 Hours", 1, 101116)
+    show_split_cum(h2, "Last 7 Days", 7, 704735)
+    show_split_cum(h3, "Last 30 Days", 30, 3009339)
+    show_split_cum(h4, "6 Months", 182, 13159992)
+    show_split_cum(h5, "1 Year", 365, 26469998)
 
 with tab2:
-    # 5. TAX STRATEGY & DEFINITIONS
     st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
     with st.expander("📖 Explain These 4 Stages"):
         st.markdown("""
-        **1. Pre-Opt (Baseline):** Current site (0MW Hybrid) with zero tax credits.
-        **2. Opt (Pre-Tax):** Ideal Sizing with zero tax incentives.
+        **1. Pre-Opt (Baseline):** Greenfield site (0MW Hybrid).
+        **2. Opt (Pre-Tax):** Ideal sizing before tax incentives.
         **3. Current (Post-Tax):** Current site with ITC/Bonuses applied.
-        **4. Opt (Post-Tax):** Ideal Sizing + Full Tax Strategy for maximum yield.
+        **4. Opt (Post-Tax):** Ideal Sizing + Full Tax Strategy.
         """)
 
     tx1, tx2, tx3 = st.columns(3)
@@ -182,14 +184,11 @@ with tab2:
         ma = (capture_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (w_pct * 0.20))
         ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         base = (solar_cap * 82500 + wind_cap * 124000)
-        net_m = ((m*1e6)/m_eff)*m_cost
-        net_b = (b*BATT_COST_PER_MW*(1-itc))
-        net = net_m + net_b
+        net = (((m*1e6)/m_eff)*m_cost) + (b*BATT_COST_PER_MW*(1-itc))
         irr = (ma + ba) / net * 100 if net > 0 else 0
         roi = net / (ma + ba) if (ma + ba) > 0 else 0
         return ma, ba, base, net, irr, roi
 
-    # Financial cards based on Greenfield Baseline
     s_cur_0, s_opt_0 = get_metrics(m_load_input, batt_mw_input, 0), get_metrics(ideal_m, ideal_b, 0)
     s_cur_t, s_opt_t = get_metrics(m_load_input, batt_mw_input, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
 
