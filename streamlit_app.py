@@ -130,71 +130,40 @@ with tab1:
         fig.update_layout(barmode='group', height=200, margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 4. DYNAMIC HISTORICAL PERFORMANCE WITH EARNINGS SPLIT
+    # 4. HISTORICAL PERFORMANCE BREAKDOWN
     st.markdown("---")
     st.subheader("📅 Historical Performance (Alpha Revenue Split)")
-    
-    daily_mine_alpha = mining_yield_annual / 365
-    daily_batt_alpha = battery_yield_annual / 365
+    daily_mine_alpha, daily_batt_alpha = mining_yield_annual / 365, battery_yield_annual / 365
 
     def show_split_cum(col, label, days, base_rev):
         scale_factor = (total_gen / 200) 
         current_total = (base_rev * scale_factor) * 0.65
-        
-        m_alpha = daily_mine_alpha * days
-        b_alpha = daily_batt_alpha * days
-        total_alpha = m_alpha + b_alpha
-        opt_total = current_total + total_alpha
-        
+        m_a, b_a = daily_mine_alpha * days, daily_batt_alpha * days
+        opt_total = current_total + m_a + b_a
         with col:
             st.markdown(f"#### {label}")
             st.markdown(f"**Grid Base Revenue**")
             st.markdown(f"<h2 style='margin-bottom:0;'>${current_total:,.0f}</h2>", unsafe_allow_html=True)
             st.markdown(f"**Optimized Hybrid Total**")
             st.markdown(f"<h2 style='color:#1565C0; margin-bottom:0;'>${opt_total:,.0f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${total_alpha:,.0f} Alpha Potential</p>", unsafe_allow_html=True)
-            st.write(f" * ⛏️ **Mining:** :green[${m_alpha:,.0f}]")
-            st.write(f" * 🔋 **Battery:** :green[${b_alpha:,.0f}]")
+            st.markdown(f"<p style='color:#28a745; margin-bottom:0;'>↑ ${(m_a + b_a):,.0f} Alpha Potential</p>", unsafe_allow_html=True)
+            st.write(f" * ⛏️ **Mining:** :green[${m_a:,.0f}]")
+            st.write(f" * 🔋 **Battery:** :green[${b_a:,.0f}]")
             st.write("---")
 
     h1, h2, h3, h4, h5 = st.columns(5)
-    show_split_cum(h1, "Last 24 Hours", 1, 101116)
-    show_split_cum(h2, "Last 7 Days", 7, 704735)
-    show_split_cum(h3, "Last 30 Days", 30, 3009339)
-    show_split_cum(h4, "6 Months", 182, 13159992)
-    show_split_cum(h5, "1 Year", 365, 26469998)
+    show_split_cum(h1, "Last 24 Hours", 1, 101116); show_split_cum(h2, "Last 7 Days", 7, 704735)
+    show_split_cum(h3, "Last 30 Days", 30, 3009339); show_split_cum(h4, "6 Months", 182, 13159992)
+    show_split_cum(h5, "Last 1 Year", 365, 26469998)
 
 with tab2:
-    # 5. FULL TAX STRATEGY DEFINITIONS RESTORED
     st.subheader("🏛️ Tax Optimized Hardware (Financial Incentives)")
-    
     with st.expander("📖 Explain These 4 Financial Stages", expanded=True):
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            st.markdown("""
-            **1. Pre-Opt (Baseline)**
-            * **Setup:** This is the "as-is" starting point for the project. Uses the exact Miner MW and Battery MW you have currently entered in the sliders.
-            * **Taxes:** Assumes zero tax credits or government incentives.
-            * **Purpose:** It serves as the "Control" group to show the raw performance of the site without any optimization or financial engineering.
-
-            **2. Opt (Pre-Tax)**
-            * **Setup:** This stage shows the impact of the Hybrid Optimization Engine. It automatically adjusts the Miner and Battery sizes to the "Ideal Sizing" calculated by the app's internal logic.
-            * **Taxes:** Still assumes zero tax incentives.
-            * **Purpose:** It isolates the value of Capital Allocation. It proves how much more money you can make simply by changing the ratio of hardware to better match your solar and wind "fuel" source.
-            """)
-        with col_g2:
-            st.markdown("""
-            **3. Current (Post-Tax)**
-            * **Setup:** This stage introduces the Inflation Reduction Act (IRA) incentives to your original plan. It reverts to your original Miner MW and Battery MW slider inputs.
-            * **Taxes:** Applies the Investment Tax Credit (ITC) and any selected bonuses (Domestic Content, Underserved Communities) to the battery portion of the project.
-            * **Purpose:** It shows how government "coupons" improve your IRR and ROI without changing a single piece of hardware on the site.
-
-            **4. Opt (Post-Tax) — The "Alpha" State**
-            * **Setup:** This is the final, fully optimized state of the project. It uses the Ideal Sizing recommended by the Optimization Engine.
-            * **Taxes:** Applies the full Tax Strategy (ITC + Bonuses) to the project's net cost.
-            * **Purpose:** This represents the maximum potential of the asset. It combines the physical efficiency of the hardware with the financial efficiency of the tax code to provide the fastest possible payback period.
-            """)
-
+        g1, g2 = st.columns(2)
+        with g1:
+            st.markdown("**1. Pre-Opt (Baseline)**: Current 'as-is' site (0MW Hybrid). Control group showing raw performance without optimization or financial engineering.\n\n**2. Opt (Pre-Tax)**: Impact of the Hybrid Engine. Isolates the value of Capital Allocation and hardware ratios before incentives.")
+        with g2:
+            st.markdown("**3. Current (Post-Tax)**: Original plan with IRA incentives. Shows how ITC/Bonuses improve IRR without changing physical hardware.\n\n**4. Opt (Post-Tax)**: Final fully optimized state. Maximum potential combining physical efficiency with financial tax efficiency.")
     st.write("---")
     tx1, tx2, tx3 = st.columns(3)
     t_rate = (0.3 if tx1.checkbox("Apply 30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("Apply 10% Domestic Content", False) else 0)
@@ -206,31 +175,39 @@ with tab2:
         ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (s_pct * 0.25))
         base = (solar_cap * 82500 + wind_cap * 124000)
         net = (((m*1e6)/m_eff)*m_cost) + (b*BATT_COST_PER_MW*(1-itc))
-        irr = (ma + ba) / net * 100 if net > 0 else 0
-        roi = net / (ma + ba) if (ma + ba) > 0 else 0
+        irr, roi = (ma+ba)/net*100 if net > 0 else 0, net/(ma+ba) if (ma+ba)>0 else 0
         return ma, ba, base, net, irr, roi
 
-    s_cur_0, s_opt_0 = get_metrics(m_load_input, batt_mw_input, 0), get_metrics(ideal_m, ideal_b, 0)
-    s_cur_t, s_opt_t = get_metrics(m_load_input, batt_mw_input, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
+    s00, s10 = get_metrics(m_load_input, batt_mw_input, 0), get_metrics(ideal_m, ideal_b, 0)
+    s0t, s1t = get_metrics(m_load_input, batt_mw_input, t_rate), get_metrics(ideal_m, ideal_b, t_rate)
 
     ca, cb, cc, cd = st.columns(4)
     def draw_card(col, lbl, met, m_v, b_v, sub):
         with col:
-            st.write(f"### {lbl}")
-            st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
+            st.write(f"### {lbl}"); st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
             st.markdown(f"<h1 style='color: #28a745;'>${(met[0]+met[1]+met[2]):,.0f}</h1>", unsafe_allow_html=True)
             st.markdown(f"**↑ IRR: {met[4]:.1f}% | ROI: {met[5]:.2f} Y**")
             st.write(f"* ⛏️ Mining: `${met[0]:,.0f}` | 🔋 Battery: `${met[1]:,.0f}`")
             st.write(f"* ⚡ Grid: `${met[2]:,.0f}`")
 
-    draw_card(ca, "1. Pre-Opt", s_cur_0, m_load_input, batt_mw_input, "Current/No Tax")
-    draw_card(cb, "2. Opt (Pre-Tax)", s_opt_0, ideal_m, ideal_b, "Ideal/No Tax")
-    draw_card(cc, "3. Current (Post-Tax)", s_cur_t, m_load_input, batt_mw_input, "Current/Full Tax")
-    draw_card(cd, "4. Opt (Post-Tax)", s_opt_t, ideal_m, ideal_b, "Ideal/Full Tax")
+    draw_card(ca, "1. Pre-Opt", s00, m_load_input, batt_mw_input, "Current/No Tax")
+    draw_card(cb, "2. Opt (Pre-Tax)", s10, ideal_m, ideal_b, "Ideal/No Tax")
+    draw_card(cc, "3. Current (Post-Tax)", s0t, m_load_input, batt_mw_input, "Current/Full Tax")
+    draw_card(cd, "4. Opt (Post-Tax)", s1t, ideal_m, ideal_b, "Ideal/Full Tax")
 
 with tab3:
     st.subheader("📈 Long-Term Volatility")
-    st.markdown("#### 1. West Texas (HB_WEST)")
     st.table(pd.DataFrame(TREND_DATA_WEST).T.style.format("{:.1%}"))
-    st.markdown("#### 2. ERCOT System-Wide Average")
-    st.table(pd.DataFrame(TREND_DATA_SYSTEM).T.style.format("{:.1%}"))
+    st.markdown("---")
+    st.subheader("🧐 Strategic Trend Analysis")
+    st.write("""
+    ERCOT’s grid is shifting toward a **binary state** of extreme excess or scarcity. This volatility spread favors hybrid assets over pure generators.
+    * **Lower Bound:** Sub-2¢ pricing is now a system-wide trend. HB_WEST negative frequency is projected to hit **12.1%** by 2025—3x the system average.
+    * **Upper Bound:** Late afternoon 'Duck Curve' drop-offs cause scarcity spikes, often exceeding $1.00/kWh. This is the primary revenue driver for **Battery Alpha**.
+    """)
+    st.table(pd.DataFrame({
+        "Price Category": ["Negative (<$0)", "$0 - $0.02", "High ($1.00+)"],
+        "2021 Frequency": ["2.1%", "18.2%", "0.8%"],
+        "2025 Frequency": ["12.1%", "33.5%", "0.5% (Proj)"],
+        "Trend": ["Expanding Lower Bound", "Fuel Saturation", "Controlled Volatility"]
+    }).set_index("Price Category"))
