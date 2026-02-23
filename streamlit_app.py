@@ -4,10 +4,16 @@ import numpy as np
 import plotly.graph_objects as go
 import requests
 import gridstatus
-import gridstatusio # NEW: Enterprise API Client
 import os
 import pickle
 from datetime import datetime, timedelta
+
+# --- Graceful Import for Enterprise API ---
+try:
+    import gridstatusio
+    GS_ENTERPRISE_AVAILABLE = True
+except ImportError:
+    GS_ENTERPRISE_AVAILABLE = False
 
 # --- 1. CORE SYSTEM CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="Hybrid OS | Grid Intelligence")
@@ -18,7 +24,6 @@ CORP_TAX_RATE = 0.21
 CACHE_FILE = "ercot_price_cache.pkl"
 CACHE_EXPIRY_HOURS = 1
 
-# --- CACHE FUNCTIONS ---
 def load_cached_prices():
     if os.path.exists(CACHE_FILE):
         try:
@@ -37,68 +42,20 @@ def save_cached_prices(prices):
     except:
         pass
 
-# --- 2. THE "CENTRAL HUB" AUTHENTICATION PORTAL ---
-if "password_correct" not in st.session_state: 
-    st.session_state.password_correct = False
-
+# --- 2. AUTHENTICATION ---
+if "password_correct" not in st.session_state: st.session_state.password_correct = False
 def check_password():
     if st.session_state.password_correct: return True
-    
-    st.markdown("""
-        <style>
-        .stApp { background-color: #0e1117; display: grid; place-items: center; min-height: 100vh; }
-        .auth-container {
-            width: 95%; max-width: 900px; display: flex; flex-direction: row;
-            background: #161b22; border-radius: 12px; border: 1px solid #30363d;
-            overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-        }
-        .auth-branding {
-            background-color: #262730; padding: 60px 40px; flex: 1;
-            display: flex; flex-direction: column; justify-content: center;
-            border-right: 1px solid #3d3f4b;
-        }
-        .auth-form { flex: 1.5; padding: 60px; background-color: #161b22; }
-        .brand-text { color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 42px; margin: 0; }
-        .version-text { color: #808495; font-size: 14px; margin-top: 5px; }
-        .auth-header { color: #ffffff; font-weight: 700; font-size: 28px; margin-bottom: 8px; }
-        .auth-sub { color: #8b949e; font-size: 15px; margin-bottom: 30px; }
-        .brief-section { color: #c9d1d9; font-size: 14px; line-height: 1.7; margin-bottom: 35px; border-left: 3px solid #0052FF; padding-left: 20px; }
-        .brief-title { color: #58a6ff; font-weight: 600; font-size: 12px; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1.2px; }
-        @media (max-width: 800px) {
-            .auth-container { flex-direction: column; margin: 20px; }
-            .auth-branding { padding: 40px; border-right: none; border-bottom: 1px solid #3d3f4b; }
-            .auth-form { padding: 40px 30px; }
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="auth-container">', unsafe_allow_html=True)
-    st.markdown('<div class="auth-branding"><p class="brand-text">Hybrid OS</p><p class="version-text">v14.1 Deployment</p></div>', unsafe_allow_html=True)
-    st.markdown('<div class="auth-form">', unsafe_allow_html=True)
-    st.markdown('<p class="auth-header">Executive Access</p><p class="auth-sub">Grid Intelligence & Asset Optimization Portal</p>', unsafe_allow_html=True)
-    st.markdown('<p class="brief-title">Strategic Value Proposition</p>', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="brief-section">
-        • <b>Dynamic Arbitrage:</b> Identifies high-alpha windows where compute load outperforms spot market exports.<br><br>
-        • <b>Yield Optimization:</b> Mathematically ideal BESS-to-Compute ratios calibrated to specific generation sources (Renewable & Thermal).<br><br>
-        • <b>Financial Engineering:</b> Integrated ITC and MACRS tax shields for institutional-grade projections.
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("""<style>.stApp { background-color: #0e1117; display: grid; place-items: center; min-height: 100vh; }</style>""", unsafe_allow_html=True)
     pwd = st.text_input("Institutional Access Key", type="password")
-    if st.button("Authenticate Session", use_container_width=True, type="primary"):
-        if pwd == DASHBOARD_PASSWORD:
-            st.session_state.password_correct = True
-            st.rerun()
-        else:
-            st.error("Authentication Failed")
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    if st.button("Authenticate Session"):
+        if pwd == DASHBOARD_PASSWORD: st.session_state.password_correct = True; st.rerun()
     return False
-
 if not check_password(): st.stop()
 
-# --- 3. PERSISTENT SIDEBAR CONTROLS ---
+# --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.1 Deployment")
+st.sidebar.caption("v14.2 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -119,70 +76,42 @@ st.sidebar.markdown("### 🏛️ Starting Hardware")
 m_load_in = st.sidebar.number_input("Starting Miner Load (MW)", value=0)
 b_mw_in = st.sidebar.number_input("Starting Battery Size (MW)", value=0)
 
-# --- 4. DATA PROCESSING & CACHING ---
-TREND_DATA_WEST = {
-    "Negative (<$0)": {"2021": 0.021, "2025": 0.121},
-    "$0 - $0.02": {"2021": 0.182, "2025": 0.335}
-}
-
+# --- 4. DATA PROCESSING ---
 @st.cache_data(ttl=300)
 def get_live_data(api_key, market):
-    """Fetch real-time data using gridstatus.io API if key is present, else use fallback."""
     cached = load_cached_prices()
     if cached is not None: return cached
-
     end_date = pd.Timestamp.now(tz="US/Central")
-    start_date = end_date - pd.Timedelta(days=30) # Fetch 30 days of 5-min intervals for accuracy
-
-    # Use Gridstatus.io Enterprise API
-    if api_key:
+    start_date = end_date - pd.Timedelta(days=30)
+    
+    if api_key and GS_ENTERPRISE_AVAILABLE:
         try:
             client = gridstatusio.GridStatusClient(api_key=api_key)
             if "ERCOT" in market:
-                df = client.get_dataset(
-                    dataset="ercot_spp_real_time_15_min",
-                    start=start_date,
-                    end=end_date
-                )
+                df = client.get_dataset(dataset="ercot_spp_real_time_15_min", start=start_date, end=end_date)
                 if df is not None and not df.empty:
                     series = df[df['Settlement Point'] == 'HB_WEST'].set_index('Interval Start').sort_index()['Settlement Point Price']
                     save_cached_prices(series)
                     return series
             elif "SPP" in market:
-                df = client.get_dataset(
-                    dataset="spp_rtm_lmp",
-                    start=start_date,
-                    end=end_date
-                )
+                df = client.get_dataset(dataset="spp_rtm_lmp", start=start_date, end=end_date)
                 if df is not None and not df.empty:
-                    # Using a generic SPP settlement location proxy until specific Hardin node is requested
                     series = df.set_index('Interval Start').sort_index()['LMP'] 
                     save_cached_prices(series)
                     return series
         except Exception as e:
             st.sidebar.error(f"API Error: {e}")
-
-    # Fallback to public Gridstatus library scraper if no API key or API fails
-    try:
-        iso = gridstatus.Ercot()
-        df = iso.get_rtm_lmp(start=start_date, end=end_date, verbose=False)
-        if df is not None and len(df) > 0:
-            series = df[df['Location'] == 'HB_WEST'].set_index('Time').sort_index()['LMP']
-            save_cached_prices(series)
-            return series
-    except:
-        pass
-
-    # Final fallback simulation for uninterrupted UI development
+    elif api_key and not GS_ENTERPRISE_AVAILABLE:
+        st.sidebar.warning("gridstatusio not installed. Using fallback data.")
+        
     return pd.Series(np.random.uniform(5, 60, 8760)) 
 
-# Execute Data Fetch
 price_hist = get_live_data(gs_api_key, target_market)
 breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
 
 def calculate_period_live_metrics(price_series, breakeven_val, ideal_m, ideal_b, days, w_pct, s_pct):
     try:
-        data_points = int(days * 288) # 288 5-min intervals per day
+        data_points = int(days * 288)
         period_data = price_series.iloc[-data_points:] if len(price_series) >= data_points else price_series
         avg_price = period_data.mean()
         
@@ -196,8 +125,8 @@ def calculate_period_live_metrics(price_series, breakeven_val, ideal_m, ideal_b,
     except: return 0, 0, 0
 
 # --- 5. DASHBOARD INTERFACE ---
-t_baseload, t_evolution, t_tax, t_volatility, t_price_dsets = st.tabs([
-    "🏭 Thermal Baseload OS", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility", "📊 Price Datasets"
+t_baseload, t_hardin, t_evolution, t_tax, t_volatility, t_price_dsets = st.tabs([
+    "🏭 Thermal Baseload OS", "🏔️ Hardin Optimization", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility", "📊 Price Datasets"
 ])
 
 # ==========================================
@@ -219,13 +148,13 @@ with t_baseload:
     st.markdown("---")
     st.subheader("⚙️ Recommended Hardware Sizing & Tax Subsidies")
     
+    ideal_coal_miners = coal_mw
+    ideal_coal_battery = int(coal_mw * 0.25)
+    
     base_itc = 0.30
     energy_community_bonus = 0.10
     domestic_content = 0.10
     total_itc = base_itc + energy_community_bonus + domestic_content
-    
-    ideal_coal_miners = coal_mw
-    ideal_coal_battery = int(coal_mw * 0.25)
     
     b1, b2 = st.columns([1, 1.5])
     with b1:
@@ -235,21 +164,46 @@ with t_baseload:
         st.write("*Rationale:* Sized to discharge during extreme summer peaks, allowing the site to export 125% of its nameplate capacity.")
     with b2:
         st.markdown("**Tax Shield Impact (Hardin, MT)**")
-        st.info(f"📍 **Location Bonus:** Hardin qualifies as an 'Energy Community' (coal transition zone), unlocking a 10% ITC bonus.")
+        st.info("📍 **Location Bonus:** Hardin qualifies as an 'Energy Community' (coal transition zone), unlocking a 10% ITC bonus.")
         st.write(f"- Base ITC: {base_itc*100}%\n- Energy Community Bonus: {energy_community_bonus*100}%\n- Domestic Content: {domestic_content*100}%")
         st.markdown(f"**Total Battery Capex Covered by ITC: <span style='color:#28a745; font-size:20px;'>{total_itc*100}%</span>**", unsafe_allow_html=True)
+
+# ==========================================
+# NEW: HARDIN OPTIMIZATION MATRIX
+# ==========================================
+with t_hardin:
+    st.markdown("### 🏔️ Hardin Real-Time Market Capture")
+    st.write("This table tracks the exact telemetry for the Hardin location, identifying how many 5-minute settlement intervals breached the miner breakeven threshold, triggering battery discharge.")
     
-    st.markdown("---")
-    st.subheader("🔄 Automated Routing Logic Matrix")
-    
-    logic_df = pd.DataFrame({
-        "Grid Price State": [f"Deep Discount (Price < ${breakeven:.0f})", f"Loss Mitigation (${breakeven:.0f} - ${coal_cost_mwh:.0f})", f"Profit Export (Price > ${coal_cost_mwh:.0f})", "Summer Peak Scarcity (Price > $150)"],
-        "Miner Status": ["100 MW ACTIVE", "OFF", "OFF", "OFF"],
-        "Battery Status": ["CHARGING (Using Miner Opp. Cost)", "IDLE", "IDLE", "DISCHARGING 25 MW"],
-        "Grid Export": ["0 MW", "100 MW", "100 MW", "125 MW (Peak Multiplier)"],
-        "Net Financial Result": ["Synthetic Floor Achieved", "Loss Minimized", "Pure Profit", "Maximized Alpha"]
+    def get_hardin_metrics(series, days, breakeven_val, batt_mw):
+        try:
+            pts = int(days * 288) # 288 5-min intervals in 24 hrs
+            data = series.iloc[-pts:] if len(series) >= pts else series
+            if len(data) == 0: return 0, 0, 0
+            
+            avg_p = data.mean()
+            above_be = data[data > breakeven_val]
+            num_segments = len(above_be)
+            
+            # Net discharge revenue = (Grid Price - Miner Opportunity Cost) * Battery MW. Divided by 12 to convert hourly MW to 5-min intervals.
+            batt_rev = sum((p - breakeven_val) * batt_mw for p in above_be) / 12.0
+            return avg_p, num_segments, batt_rev
+        except:
+            return 0, 0, 0
+
+    d1_avg, d1_seg, d1_rev = get_hardin_metrics(price_hist, 1, breakeven, ideal_coal_battery)
+    d7_avg, d7_seg, d7_rev = get_hardin_metrics(price_hist, 7, breakeven, ideal_coal_battery)
+    d30_avg, d30_seg, d30_rev = get_hardin_metrics(price_hist, 30, breakeven, ideal_coal_battery)
+
+    hardin_df = pd.DataFrame({
+        "Lookback Period": ["24 Hours", "7 Days", "30 Days"],
+        "Average Grid Price": [f"${d1_avg:.2f} / MWh", f"${d7_avg:.2f} / MWh", f"${d30_avg:.2f} / MWh"],
+        "Intervals > Breakeven": [d1_seg, d7_seg, d30_seg],
+        "Battery Discharge Revenue": [f"${d1_rev:,.0f}", f"${d7_rev:,.0f}", f"${d30_rev:,.0f}"]
     })
-    st.table(logic_df.set_index("Grid Price State"))
+    
+    st.table(hardin_df.set_index("Lookback Period"))
+    st.caption("Note: 'Intervals > Breakeven' represents 5-minute segments where the grid price exceeded the synthetic floor, prompting the system to shut off miners and discharge the 25 MW battery.")
 
 # ==========================================
 # RETAINED TABS (RENEWABLES & ISO ANALYSIS)
@@ -273,6 +227,7 @@ with t_evolution:
     show_comparison = st.toggle("Compare Actual (Live) vs. Historic Strategy", value=True)
     h1, h2, h3 = st.columns(3)
     
+    TREND_DATA_WEST = {"Negative (<$0)": {"2025": 0.121}, "$0 - $0.02": {"2025": 0.335}}
     cap_2025 = 0.456 
     dm = (cap_2025 * 8760 * ideal_m * (breakeven - 12)) / 365 / (1.0 + (w_pct * 0.20))
     db = (0.12 * 8760 * ideal_b * (breakeven + 30)) / 365 / (1.0 + (s_pct * 0.25))
@@ -333,18 +288,6 @@ with t_tax:
 
 with t_volatility:
     st.subheader("📈 Institutional Volatility Analysis")
-    st.write("The volatility of grid operators varies significantly across North America. This analysis compares pricing distribution patterns across major ISOs, identifying arbitrage opportunities and regional risk profiles.")
-    
-    st.markdown("#### 1. The Lower Bound: Exponential Growth of Negative Pricing")
-    st.write("The lower pricing bound is increasingly defined by 'excess supply' events, where the grid has more power than it can consume or export.")
-    st.write("* **Solar Saturation:** As solar capacity grows, the frequency of prices in the $0 - $0.02/kWh bracket has transitioned from a localized West Texas issue to a system-wide phenomenon.")
-    
-    st.markdown("#### 2. The Upper Bound: Scarcity and Peak Pricing")
-    st.write("The upper bound is becoming more volatile due to 'scarcity' events when renewable generation drops off just as demand peaks.")
-    st.write("* **Battery Dominance:** This volatility at the top is the primary revenue driver for the **Battery Alpha**, as the battery only discharges during scarcity windows.")
-
-    st.markdown("---")
-    st.markdown("#### 📊 Comparative ISO Analysis")
     iso_comparison = {
         "ISO": ["ERCOT", "CAISO", "PJM", "SPP"],
         "Negative 2025": ["12.1%", "14.5%", "1.2%", "5.8%"],
@@ -358,7 +301,6 @@ with t_volatility:
 
 with t_price_dsets:
     st.markdown("## 📊 Price Datasets")
-    st.markdown("### Explore Historical and 24-Hour Live-Time Price Data")
     col_live, col_hist = st.columns(2)
     with col_live:
         st.markdown("**🕒 24-Hour Live-Time Price Data**")
