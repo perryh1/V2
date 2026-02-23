@@ -55,11 +55,10 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.3 Deployment")
+st.sidebar.caption("v14.4 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
-# Hardcoded API key for local testing while retaining the password mask UI
 gs_api_key = st.sidebar.text_input("API Key (gridstatus.io)", value="ca4d17f58f114c8aa7f60b2f33e2a581", type="password")
 target_market = st.sidebar.selectbox("Live Telemetry Target", ["ERCOT (HB_WEST)", "SPP (Hardin MT Proxy)"])
 
@@ -127,7 +126,7 @@ def calculate_period_live_metrics(price_series, breakeven_val, ideal_m, ideal_b,
 
 # --- 5. DASHBOARD INTERFACE ---
 t_baseload, t_hardin, t_evolution, t_tax, t_volatility, t_price_dsets = st.tabs([
-    "🏭 Thermal Baseload OS", "🏔️ Hardin Optimization", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility", "📊 Price Datasets"
+    "🏭 Thermal Baseload OS", "🏔️ Hardin Price Optimization", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility", "📊 Price Datasets"
 ])
 
 # ==========================================
@@ -140,14 +139,19 @@ with t_baseload:
     coal_mw = 100
     coal_cost_mwh = 55.00
     
+    # NEW: Calculate efficiency required to exactly breakeven with the $55/MWh coal cost
+    required_efficiency = (1e6 * (hp_cents / 100.0)) / (coal_cost_mwh * 24.0)
+    
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Nameplate Capacity", f"{coal_mw} MW", "Must-Run")
     c2.metric("Production Cost", f"${coal_cost_mwh:.2f}/MWh", "- Fixed Sunk Cost", delta_color="inverse")
-    c3.metric("Miner Breakeven", f"${breakeven:.2f}/MWh", "Synthetic Floor")
+    with c3:
+        st.metric("Miner Breakeven", f"${breakeven:.2f}/MWh", "Synthetic Floor")
+        st.caption(f"**Hashprice Breakeven:** `{required_efficiency:.1f} J/TH`")
     c4.metric("Current Market Price", f"${price_hist.iloc[-1] if len(price_hist) > 0 else 0:.2f}/MWh")
     
     st.markdown("---")
-    st.subheader("⚙️ Recommended Hardware Sizing & Tax Subsidies")
+    st.subheader("⚙️ Recommended Hardware Sizing & Optimal Capital Allocation")
     
     ideal_coal_miners = coal_mw
     ideal_coal_battery = int(coal_mw * 0.25)
@@ -157,50 +161,78 @@ with t_baseload:
     domestic_content = 0.10
     total_itc = base_itc + energy_community_bonus + domestic_content
     
-    b1, b2 = st.columns([1, 1.5])
+    # NEW: Capital Allocation Math
+    miner_capex_100mw = ideal_coal_miners * (1e6 / m_eff) * m_cost
+    batt_capex_25mw_pre = ideal_coal_battery * BATT_COST_PER_MW
+    batt_capex_25mw_post = batt_capex_25mw_pre * (1 - total_itc)
+    
+    pre_total = miner_capex_100mw + batt_capex_25mw_pre
+    post_total = miner_capex_100mw + batt_capex_25mw_post
+    
+    m_alloc_pre = (miner_capex_100mw / pre_total) * 100
+    b_alloc_pre = (batt_capex_25mw_pre / pre_total) * 100
+    m_alloc_post = (miner_capex_100mw / post_total) * 100
+    b_alloc_post = (batt_capex_25mw_post / post_total) * 100
+    
+    b1, b2, b3 = st.columns([1, 1, 1])
     with b1:
-        st.markdown(f"**Optimal Miners:** `{ideal_coal_miners} MW`")
-        st.write("*Rationale:* Matches nameplate exactly. Ensures the plant never sells power to the grid for less than the Miner Breakeven.")
-        st.markdown(f"**Optimal Battery:** `{ideal_coal_battery} MW`")
-        st.write("*Rationale:* Sized to discharge during extreme summer peaks, allowing the site to export 125% of its nameplate capacity.")
+        st.markdown(f"**1. Capacity Ratio Sizing**")
+        st.write(f"⛏️ Miners: `{ideal_coal_miners} MW`")
+        st.write(f"🔋 Battery: `{ideal_coal_battery} MW`")
+        st.caption("Matches 100% of plant nameplate for negative price defense, with a 25% peak multiplier for scarcity exports.")
     with b2:
-        st.markdown("**Tax Shield Impact (Hardin, MT)**")
-        st.info("📍 **Location Bonus:** Hardin qualifies as an 'Energy Community' (coal transition zone), unlocking a 10% ITC bonus.")
-        st.write(f"- Base ITC: {base_itc*100}%\n- Energy Community Bonus: {energy_community_bonus*100}%\n- Domestic Content: {domestic_content*100}%")
-        st.markdown(f"**Total Battery Capex Covered by ITC: <span style='color:#28a745; font-size:20px;'>{total_itc*100}%</span>**", unsafe_allow_html=True)
+        st.markdown("**2. Pre-Tax Capital Allocation**")
+        st.write(f"For every **$100** spent:")
+        st.write(f"⛏️ Miners: `${m_alloc_pre:.2f}`")
+        st.write(f"🔋 Battery: `${b_alloc_pre:.2f}`")
+        st.caption(f"Total Pre-Tax Capex: ${(pre_total/1e6):.1f}M")
+    with b3:
+        st.markdown("**3. Post-Tax Capital Allocation (ITC)**")
+        st.write(f"For every **$100** spent:")
+        st.write(f"⛏️ Miners: `${m_alloc_post:.2f}`")
+        st.write(f"🔋 Battery: `${b_alloc_post:.2f}`")
+        st.caption(f"Total Post-Tax Capex: ${(post_total/1e6):.1f}M (Saves ${(batt_capex_25mw_pre - batt_capex_25mw_post)/1e6:.1f}M)")
 
 # ==========================================
-# HARDIN OPTIMIZATION MATRIX
+# HARDIN PRICE OPTIMIZATION MATRIX
 # ==========================================
 with t_hardin:
-    st.markdown("### 🏔️ Hardin Real-Time Market Capture")
-    st.write("This table tracks the exact telemetry for the Hardin location, identifying how many 5-minute settlement intervals breached the miner breakeven threshold, triggering battery discharge.")
+    st.markdown("### 🏔️ Hardin Price Optimization")
+    st.write("This table tracks the exact telemetry for the Hardin location, displaying the revenue captured by **both** the miners (during low pricing) and the batteries (during peak pricing) over historical intervals.")
     
-    def get_hardin_metrics(series, days, breakeven_val, batt_mw):
+    def get_hardin_metrics(series, days, breakeven_val, miner_mw, batt_mw):
         try:
             pts = int(days * 288) # 288 5-min intervals in 24 hrs
             data = series.iloc[-pts:] if len(series) >= pts else series
-            if len(data) == 0: return 0, 0, 0
+            if len(data) == 0: return 0, 0, 0, 0
             
             avg_p = data.mean()
+            
+            # Identify segments above and below the breakeven trigger
             above_be = data[data > breakeven_val]
+            below_be = data[data <= breakeven_val]
             num_segments = len(above_be)
             
-            # Net discharge revenue = (Grid Price - Miner Opportunity Cost) * Battery MW. Divided by 12 to convert hourly MW to 5-min intervals.
+            # Net discharge revenue (Peak)
             batt_rev = sum((p - breakeven_val) * batt_mw for p in above_be) / 12.0
-            return avg_p, num_segments, batt_rev
+            
+            # Miner revenue floor (Discount) - The alpha earned above current grid price
+            miner_rev = sum((breakeven_val - p) * miner_mw for p in below_be) / 12.0
+            
+            return avg_p, num_segments, batt_rev, miner_rev
         except:
-            return 0, 0, 0
+            return 0, 0, 0, 0
 
-    d1_avg, d1_seg, d1_rev = get_hardin_metrics(price_hist, 1, breakeven, ideal_coal_battery)
-    d7_avg, d7_seg, d7_rev = get_hardin_metrics(price_hist, 7, breakeven, ideal_coal_battery)
-    d30_avg, d30_seg, d30_rev = get_hardin_metrics(price_hist, 30, breakeven, ideal_coal_battery)
+    d1_avg, d1_seg, d1_b_rev, d1_m_rev = get_hardin_metrics(price_hist, 1, breakeven, ideal_coal_miners, ideal_coal_battery)
+    d7_avg, d7_seg, d7_b_rev, d7_m_rev = get_hardin_metrics(price_hist, 7, breakeven, ideal_coal_miners, ideal_coal_battery)
+    d30_avg, d30_seg, d30_b_rev, d30_m_rev = get_hardin_metrics(price_hist, 30, breakeven, ideal_coal_miners, ideal_coal_battery)
 
     hardin_df = pd.DataFrame({
         "Lookback Period": ["24 Hours", "7 Days", "30 Days"],
         "Average Grid Price": [f"${d1_avg:.2f} / MWh", f"${d7_avg:.2f} / MWh", f"${d30_avg:.2f} / MWh"],
         "Intervals > Breakeven": [d1_seg, d7_seg, d30_seg],
-        "Battery Discharge Revenue": [f"${d1_rev:,.0f}", f"${d7_rev:,.0f}", f"${d30_rev:,.0f}"]
+        "Miner Revenue (Floor)": [f"${d1_m_rev:,.0f}", f"${d7_m_rev:,.0f}", f"${d30_m_rev:,.0f}"],
+        "Battery Revenue (Peak)": [f"${d1_b_rev:,.0f}", f"${d7_b_rev:,.0f}", f"${d30_b_rev:,.0f}"]
     })
     
     st.table(hardin_df.set_index("Lookback Period"))
