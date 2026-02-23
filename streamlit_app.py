@@ -55,11 +55,12 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.2 Deployment")
+st.sidebar.caption("v14.3 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
-gs_api_key = st.sidebar.text_input("API Key (gridstatus.io)", type="password")
+# Hardcoded API key for local testing while retaining the password mask UI
+gs_api_key = st.sidebar.text_input("API Key (gridstatus.io)", value="ca4d17f58f114c8aa7f60b2f33e2a581", type="password")
 target_market = st.sidebar.selectbox("Live Telemetry Target", ["ERCOT (HB_WEST)", "SPP (Hardin MT Proxy)"])
 
 st.sidebar.write("---")
@@ -169,7 +170,7 @@ with t_baseload:
         st.markdown(f"**Total Battery Capex Covered by ITC: <span style='color:#28a745; font-size:20px;'>{total_itc*100}%</span>**", unsafe_allow_html=True)
 
 # ==========================================
-# NEW: HARDIN OPTIMIZATION MATRIX
+# HARDIN OPTIMIZATION MATRIX
 # ==========================================
 with t_hardin:
     st.markdown("### 🏔️ Hardin Real-Time Market Capture")
