@@ -55,7 +55,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.5 Deployment")
+st.sidebar.caption("v14.6 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -82,7 +82,7 @@ def get_live_data(api_key, market):
     cached = load_cached_prices()
     if cached is not None: return cached
     end_date = pd.Timestamp.now(tz="US/Central")
-    start_date = end_date - pd.Timedelta(days=365) # Extended to 1 Year for Table
+    start_date = end_date - pd.Timedelta(days=365)
     
     if api_key and GS_ENTERPRISE_AVAILABLE:
         try:
@@ -198,11 +198,11 @@ with t_hardin:
     st.markdown("### 🏔️ BTC and Storage Revenue")
     st.write("This dual-view matrix visualizes total gross revenue and net profit logic across 1 year of real-time telemetry. Net Profit incorporates the fixed $55/MWh sunk production cost of the thermal asset.")
     
-    def get_hardin_metrics(series, days, breakeven_val, miner_mw, batt_mw, coal_cost):
+    def get_hardin_metrics(series, days, breakeven_val, miner_mw, batt_mw, coal_mw, coal_cost):
         try:
             pts = int(days * 288) 
             data = series.iloc[-pts:] if len(series) >= pts else series
-            if len(data) == 0: return 0, 0, 0, 0, 0, 0
+            if len(data) == 0: return 0, 0, 0, 0, 0, 0, 0
             
             avg_p = data.mean()
             above_be = data[data > breakeven_val]
@@ -212,45 +212,51 @@ with t_hardin:
             # GROSS REVENUE
             miner_rev = len(below_be) * breakeven_val * miner_mw / 12.0
             batt_rev = sum(above_be) * batt_mw / 12.0
-            total_rev = miner_rev + batt_rev
+            grid_rev = sum(above_be) * coal_mw / 12.0
+            
+            total_rev = miner_rev + batt_rev + grid_rev
             
             # NET PROFIT (Revenue - Coal Cost/Charging Opp Cost)
             miner_profit = len(below_be) * (breakeven_val - coal_cost) * miner_mw / 12.0
             batt_profit = sum(p - breakeven_val for p in above_be) * batt_mw / 12.0
-            total_profit = miner_profit + batt_profit
+            grid_profit = sum(p - coal_cost for p in above_be) * coal_mw / 12.0
             
-            return avg_p, num_segments, miner_rev, batt_rev, total_rev, total_profit
+            total_profit = miner_profit + batt_profit + grid_profit
+            
+            return avg_p, num_segments, miner_rev, batt_rev, grid_rev, total_rev, total_profit
         except:
-            return 0, 0, 0, 0, 0, 0
+            return 0, 0, 0, 0, 0, 0, 0
 
     metrics = [
-        get_hardin_metrics(price_hist, 1, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
-        get_hardin_metrics(price_hist, 7, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
-        get_hardin_metrics(price_hist, 30, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
-        get_hardin_metrics(price_hist, 182, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
-        get_hardin_metrics(price_hist, 365, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh)
+        get_hardin_metrics(price_hist, 1, breakeven, ideal_coal_miners, ideal_coal_battery, coal_mw, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 7, breakeven, ideal_coal_miners, ideal_coal_battery, coal_mw, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 30, breakeven, ideal_coal_miners, ideal_coal_battery, coal_mw, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 182, breakeven, ideal_coal_miners, ideal_coal_battery, coal_mw, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 365, breakeven, ideal_coal_miners, ideal_coal_battery, coal_mw, coal_cost_mwh)
     ]
     
     # Unpack for the chart
     m_revs = [m[2] for m in metrics]
     b_revs = [m[3] for m in metrics]
+    g_revs = [m[4] for m in metrics]
     
     col_table, col_chart = st.columns([1.2, 1])
     
     with col_table:
         hardin_df = pd.DataFrame({
-            "Metric": ["Avg Grid Price", "Intervals > Breakeven", "Miner Revenue (BTC)", "Battery Revenue (Export)", "Total Revenue", "Total Profit"],
-            "24 Hours": [f"${metrics[0][0]:.2f}", metrics[0][1], f"${metrics[0][2]:,.0f}", f"${metrics[0][3]:,.0f}", f"${metrics[0][4]:,.0f}", f"${metrics[0][5]:,.0f}"],
-            "7 Days": [f"${metrics[1][0]:.2f}", metrics[1][1], f"${metrics[1][2]:,.0f}", f"${metrics[1][3]:,.0f}", f"${metrics[1][4]:,.0f}", f"${metrics[1][5]:,.0f}"],
-            "30 Days": [f"${metrics[2][0]:.2f}", metrics[2][1], f"${metrics[2][2]:,.0f}", f"${metrics[2][3]:,.0f}", f"${metrics[2][4]:,.0f}", f"${metrics[2][5]:,.0f}"],
-            "6 Months": [f"${metrics[3][0]:.2f}", metrics[3][1], f"${metrics[3][2]:,.0f}", f"${metrics[3][3]:,.0f}", f"${metrics[3][4]:,.0f}", f"${metrics[3][5]:,.0f}"],
-            "1 Year": [f"${metrics[4][0]:.2f}", metrics[4][1], f"${metrics[4][2]:,.0f}", f"${metrics[4][3]:,.0f}", f"${metrics[4][4]:,.0f}", f"${metrics[4][5]:,.0f}"]
+            "Metric": ["Avg Grid Price", "Intervals > Breakeven", "Miner Revenue (BTC)", "Battery Revenue (Export)", "Grid Revenue (Export)", "Total Revenue", "Total Profit"],
+            "24 Hours": [f"${metrics[0][0]:.2f}", metrics[0][1], f"${metrics[0][2]:,.0f}", f"${metrics[0][3]:,.0f}", f"${metrics[0][4]:,.0f}", f"${metrics[0][5]:,.0f}", f"${metrics[0][6]:,.0f}"],
+            "7 Days": [f"${metrics[1][0]:.2f}", metrics[1][1], f"${metrics[1][2]:,.0f}", f"${metrics[1][3]:,.0f}", f"${metrics[1][4]:,.0f}", f"${metrics[1][5]:,.0f}", f"${metrics[1][6]:,.0f}"],
+            "30 Days": [f"${metrics[2][0]:.2f}", metrics[2][1], f"${metrics[2][2]:,.0f}", f"${metrics[2][3]:,.0f}", f"${metrics[2][4]:,.0f}", f"${metrics[2][5]:,.0f}", f"${metrics[2][6]:,.0f}"],
+            "6 Months": [f"${metrics[3][0]:.2f}", metrics[3][1], f"${metrics[3][2]:,.0f}", f"${metrics[3][3]:,.0f}", f"${metrics[3][4]:,.0f}", f"${metrics[3][5]:,.0f}", f"${metrics[3][6]:,.0f}"],
+            "1 Year": [f"${metrics[4][0]:.2f}", metrics[4][1], f"${metrics[4][2]:,.0f}", f"${metrics[4][3]:,.0f}", f"${metrics[4][4]:,.0f}", f"${metrics[4][5]:,.0f}", f"${metrics[4][6]:,.0f}"]
         })
         st.table(hardin_df.set_index("Metric"))
         
     with col_chart:
         fig = go.Figure(data=[
             go.Bar(name='BTC Revenue', x=['24H', '7D', '30D', '6M', '1Y'], y=m_revs, marker_color='#F7931A'),
+            go.Bar(name='Grid Revenue', x=['24H', '7D', '30D', '6M', '1Y'], y=g_revs, marker_color='#28a745'),
             go.Bar(name='Storage Revenue', x=['24H', '7D', '30D', '6M', '1Y'], y=b_revs, marker_color='#0052FF')
         ])
         fig.update_layout(
