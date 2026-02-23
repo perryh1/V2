@@ -55,7 +55,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.4 Deployment")
+st.sidebar.caption("v14.5 Deployment")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -82,7 +82,7 @@ def get_live_data(api_key, market):
     cached = load_cached_prices()
     if cached is not None: return cached
     end_date = pd.Timestamp.now(tz="US/Central")
-    start_date = end_date - pd.Timedelta(days=30)
+    start_date = end_date - pd.Timedelta(days=365) # Extended to 1 Year for Table
     
     if api_key and GS_ENTERPRISE_AVAILABLE:
         try:
@@ -104,7 +104,7 @@ def get_live_data(api_key, market):
     elif api_key and not GS_ENTERPRISE_AVAILABLE:
         st.sidebar.warning("gridstatusio not installed. Using fallback data.")
         
-    return pd.Series(np.random.uniform(5, 60, 8760)) 
+    return pd.Series(np.random.uniform(5, 60, 8760 * 12)) 
 
 price_hist = get_live_data(gs_api_key, target_market)
 breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
@@ -126,7 +126,7 @@ def calculate_period_live_metrics(price_series, breakeven_val, ideal_m, ideal_b,
 
 # --- 5. DASHBOARD INTERFACE ---
 t_baseload, t_hardin, t_evolution, t_tax, t_volatility, t_price_dsets = st.tabs([
-    "🏭 Thermal Baseload OS", "🏔️ Hardin Price Optimization", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility", "📊 Price Datasets"
+    "🏭 Thermal Baseload OS", "🏔️ BTC and Storage Revenue", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility", "📊 Price Datasets"
 ])
 
 # ==========================================
@@ -139,7 +139,6 @@ with t_baseload:
     coal_mw = 100
     coal_cost_mwh = 55.00
     
-    # NEW: Calculate efficiency required to exactly breakeven with the $55/MWh coal cost
     required_efficiency = (1e6 * (hp_cents / 100.0)) / (coal_cost_mwh * 24.0)
     
     c1, c2, c3, c4 = st.columns(4)
@@ -161,7 +160,6 @@ with t_baseload:
     domestic_content = 0.10
     total_itc = base_itc + energy_community_bonus + domestic_content
     
-    # NEW: Capital Allocation Math
     miner_capex_100mw = ideal_coal_miners * (1e6 / m_eff) * m_cost
     batt_capex_25mw_pre = ideal_coal_battery * BATT_COST_PER_MW
     batt_capex_25mw_post = batt_capex_25mw_pre * (1 - total_itc)
@@ -194,49 +192,76 @@ with t_baseload:
         st.caption(f"Total Post-Tax Capex: ${(post_total/1e6):.1f}M (Saves ${(batt_capex_25mw_pre - batt_capex_25mw_post)/1e6:.1f}M)")
 
 # ==========================================
-# HARDIN PRICE OPTIMIZATION MATRIX
+# HARDIN BTC AND STORAGE REVENUE
 # ==========================================
 with t_hardin:
-    st.markdown("### 🏔️ Hardin Price Optimization")
-    st.write("This table tracks the exact telemetry for the Hardin location, displaying the revenue captured by **both** the miners (during low pricing) and the batteries (during peak pricing) over historical intervals.")
+    st.markdown("### 🏔️ BTC and Storage Revenue")
+    st.write("This dual-view matrix visualizes total gross revenue and net profit logic across 1 year of real-time telemetry. Net Profit incorporates the fixed $55/MWh sunk production cost of the thermal asset.")
     
-    def get_hardin_metrics(series, days, breakeven_val, miner_mw, batt_mw):
+    def get_hardin_metrics(series, days, breakeven_val, miner_mw, batt_mw, coal_cost):
         try:
-            pts = int(days * 288) # 288 5-min intervals in 24 hrs
+            pts = int(days * 288) 
             data = series.iloc[-pts:] if len(series) >= pts else series
-            if len(data) == 0: return 0, 0, 0, 0
+            if len(data) == 0: return 0, 0, 0, 0, 0, 0
             
             avg_p = data.mean()
-            
-            # Identify segments above and below the breakeven trigger
             above_be = data[data > breakeven_val]
             below_be = data[data <= breakeven_val]
             num_segments = len(above_be)
             
-            # Net discharge revenue (Peak)
-            batt_rev = sum((p - breakeven_val) * batt_mw for p in above_be) / 12.0
+            # GROSS REVENUE
+            miner_rev = len(below_be) * breakeven_val * miner_mw / 12.0
+            batt_rev = sum(above_be) * batt_mw / 12.0
+            total_rev = miner_rev + batt_rev
             
-            # Miner revenue floor (Discount) - The alpha earned above current grid price
-            miner_rev = sum((breakeven_val - p) * miner_mw for p in below_be) / 12.0
+            # NET PROFIT (Revenue - Coal Cost/Charging Opp Cost)
+            miner_profit = len(below_be) * (breakeven_val - coal_cost) * miner_mw / 12.0
+            batt_profit = sum(p - breakeven_val for p in above_be) * batt_mw / 12.0
+            total_profit = miner_profit + batt_profit
             
-            return avg_p, num_segments, batt_rev, miner_rev
+            return avg_p, num_segments, miner_rev, batt_rev, total_rev, total_profit
         except:
-            return 0, 0, 0, 0
+            return 0, 0, 0, 0, 0, 0
 
-    d1_avg, d1_seg, d1_b_rev, d1_m_rev = get_hardin_metrics(price_hist, 1, breakeven, ideal_coal_miners, ideal_coal_battery)
-    d7_avg, d7_seg, d7_b_rev, d7_m_rev = get_hardin_metrics(price_hist, 7, breakeven, ideal_coal_miners, ideal_coal_battery)
-    d30_avg, d30_seg, d30_b_rev, d30_m_rev = get_hardin_metrics(price_hist, 30, breakeven, ideal_coal_miners, ideal_coal_battery)
-
-    hardin_df = pd.DataFrame({
-        "Lookback Period": ["24 Hours", "7 Days", "30 Days"],
-        "Average Grid Price": [f"${d1_avg:.2f} / MWh", f"${d7_avg:.2f} / MWh", f"${d30_avg:.2f} / MWh"],
-        "Intervals > Breakeven": [d1_seg, d7_seg, d30_seg],
-        "Miner Revenue (Floor)": [f"${d1_m_rev:,.0f}", f"${d7_m_rev:,.0f}", f"${d30_m_rev:,.0f}"],
-        "Battery Revenue (Peak)": [f"${d1_b_rev:,.0f}", f"${d7_b_rev:,.0f}", f"${d30_b_rev:,.0f}"]
-    })
+    metrics = [
+        get_hardin_metrics(price_hist, 1, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 7, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 30, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 182, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh),
+        get_hardin_metrics(price_hist, 365, breakeven, ideal_coal_miners, ideal_coal_battery, coal_cost_mwh)
+    ]
     
-    st.table(hardin_df.set_index("Lookback Period"))
-    st.caption("Note: 'Intervals > Breakeven' represents 5-minute segments where the grid price exceeded the synthetic floor, prompting the system to shut off miners and discharge the 25 MW battery.")
+    # Unpack for the chart
+    m_revs = [m[2] for m in metrics]
+    b_revs = [m[3] for m in metrics]
+    
+    col_table, col_chart = st.columns([1.2, 1])
+    
+    with col_table:
+        hardin_df = pd.DataFrame({
+            "Metric": ["Avg Grid Price", "Intervals > Breakeven", "Miner Revenue (BTC)", "Battery Revenue (Export)", "Total Revenue", "Total Profit"],
+            "24 Hours": [f"${metrics[0][0]:.2f}", metrics[0][1], f"${metrics[0][2]:,.0f}", f"${metrics[0][3]:,.0f}", f"${metrics[0][4]:,.0f}", f"${metrics[0][5]:,.0f}"],
+            "7 Days": [f"${metrics[1][0]:.2f}", metrics[1][1], f"${metrics[1][2]:,.0f}", f"${metrics[1][3]:,.0f}", f"${metrics[1][4]:,.0f}", f"${metrics[1][5]:,.0f}"],
+            "30 Days": [f"${metrics[2][0]:.2f}", metrics[2][1], f"${metrics[2][2]:,.0f}", f"${metrics[2][3]:,.0f}", f"${metrics[2][4]:,.0f}", f"${metrics[2][5]:,.0f}"],
+            "6 Months": [f"${metrics[3][0]:.2f}", metrics[3][1], f"${metrics[3][2]:,.0f}", f"${metrics[3][3]:,.0f}", f"${metrics[3][4]:,.0f}", f"${metrics[3][5]:,.0f}"],
+            "1 Year": [f"${metrics[4][0]:.2f}", metrics[4][1], f"${metrics[4][2]:,.0f}", f"${metrics[4][3]:,.0f}", f"${metrics[4][4]:,.0f}", f"${metrics[4][5]:,.0f}"]
+        })
+        st.table(hardin_df.set_index("Metric"))
+        
+    with col_chart:
+        fig = go.Figure(data=[
+            go.Bar(name='BTC Revenue', x=['24H', '7D', '30D', '6M', '1Y'], y=m_revs, marker_color='#F7931A'),
+            go.Bar(name='Storage Revenue', x=['24H', '7D', '30D', '6M', '1Y'], y=b_revs, marker_color='#0052FF')
+        ])
+        fig.update_layout(
+            barmode='stack', 
+            title="Gross Revenue Composition", 
+            margin=dict(l=0, r=0, t=40, b=0), 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
 # RETAINED TABS (RENEWABLES & ISO ANALYSIS)
