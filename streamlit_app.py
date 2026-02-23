@@ -21,6 +21,46 @@ BATT_COST_PER_MW = 897404.0
 CORP_TAX_RATE = 0.21 
 DB_FILE = "api_iso_hubs_5yr.db"
 
+# Master Dictionary for Dynamic UI and API Routing
+ISO_MARKETS = {
+    "ERCOT": {
+        "dataset": "ercot_spp_real_time_15_min",
+        "node_col": "settlement_point",
+        "price_col": "settlement_point_price",
+        "nodes": ["HB_WEST", "HB_NORTH", "HB_SOUTH", "HB_HOUSTON", "LZ_WEST", "LZ_SOUTH"]
+    },
+    "SPP": {
+        "dataset": "spp_lmp_real_time_5_min",
+        "node_col": "location",
+        "price_col": "lmp",
+        "nodes": ["SPP_NORTH_HUB", "SPP_SOUTH_HUB"]
+    },
+    "CAISO": {
+        "dataset": "caiso_lmp_real_time_5_min",
+        "node_col": "location",
+        "price_col": "lmp",
+        "nodes": ["TH_NP15_GEN-APND", "TH_SP15_GEN-APND", "TH_ZP26_GEN-APND"]
+    },
+    "PJM": {
+        "dataset": "pjm_lmp_real_time_5_min",
+        "node_col": "location",
+        "price_col": "lmp",
+        "nodes": ["WESTERN HUB", "N ILLINOIS HUB", "AEP GEN HUB"]
+    },
+    "NYISO": {
+        "dataset": "nyiso_lmp_real_time_5_min",
+        "node_col": "location",
+        "price_col": "lmp",
+        "nodes": ["CAPITL", "HUD VL", "N.Y.C.", "WEST"]
+    },
+    "MISO": {
+        "dataset": "miso_lmp_real_time_5_min",
+        "node_col": "location",
+        "price_col": "lmp",
+        "nodes": ["ILLINOIS.HUB", "INDIANA.HUB", "MINN.HUB", "TEXAS.HUB"]
+    }
+}
+
 # --- 2. AUTHENTICATION ---
 if "password_correct" not in st.session_state: st.session_state.password_correct = False
 def check_password():
@@ -34,12 +74,15 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.8 Deployment (Enterprise Edge)")
+st.sidebar.caption("v14.9 Deployment (Dynamic Routing)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
 gs_api_key = st.sidebar.text_input("API Key (gridstatus.io)", value="ca4d17f58f114c8aa7f60b2f33e2a581", type="password")
-target_market = st.sidebar.selectbox("Live Telemetry Target", ["ERCOT (HB_WEST)", "SPP (Hardin MT Proxy)"])
+
+# --- NEW: Dependent Dropdowns for ISO and Node ---
+selected_iso = st.sidebar.selectbox("Select ISO", list(ISO_MARKETS.keys()))
+selected_node = st.sidebar.selectbox("Select Node/Hub", ISO_MARKETS[selected_iso]["nodes"])
 
 st.sidebar.write("---")
 st.sidebar.markdown("### ⚡ Generation Mix (Renewables)")
@@ -57,25 +100,16 @@ b_mw_in = st.sidebar.number_input("Starting Battery Size (MW)", value=0)
 
 # --- 4. ENTERPRISE DATA PROCESSING (DB + API EDGE) ---
 @st.cache_data(ttl=300)
-def get_live_data(api_key, market):
-    # 1. Map target selection to database/API query parameters
-    if "ERCOT" in market:
-        iso, loc = "ERCOT", "HB_WEST"
-        dataset = "ercot_spp_real_time_15_min"
-        node_col, price_col = "Settlement Point", "Settlement Point Price"
-    elif "SPP" in market:
-        iso, loc = "SPP", "SPP_NORTH_HUB"
-        dataset = "spp_rtm_lmp"
-        node_col, price_col = "Location", "LMP"
-    else:
-        iso, loc = "ERCOT", "HB_WEST"
-        dataset = "ercot_spp_real_time_15_min"
-        node_col, price_col = "Settlement Point", "Settlement Point Price"
+def get_live_data(api_key, iso, loc):
+    market_info = ISO_MARKETS[iso]
+    dataset = market_info["dataset"]
+    node_col = market_info["node_col"]
+    price_col = market_info["price_col"]
 
     historical_series = pd.Series(dtype=float)
     live_series = pd.Series(dtype=float)
     
-    # 2. Fetch Deep History from Local SQLite DB (Loads instantly)
+    # 1. Fetch Deep History from Local SQLite DB (Loads instantly)
     if os.path.exists(DB_FILE):
         try:
             conn = sqlite3.connect(DB_FILE)
@@ -89,9 +123,9 @@ def get_live_data(api_key, market):
         except Exception as e:
             st.sidebar.error(f"Database Query Error: {e}")
     else:
-        st.sidebar.warning("Local DB not found. Ensure 'build_api_hubs_db.py' has been run.")
+        st.sidebar.warning("Local DB not found. Background builder script must run to populate 5-year history.")
 
-    # 3. Fetch the "Live Edge" via Enterprise API
+    # 2. Fetch the "Live Edge" via Enterprise API
     if api_key and GS_ENTERPRISE_AVAILABLE:
         try:
             client = gridstatusio.GridStatusClient(api_key=api_key)
@@ -117,24 +151,39 @@ def get_live_data(api_key, market):
                 )
                 
                 if df_live is not None and not df_live.empty:
-                    df_live['Interval Start'] = pd.to_datetime(df_live['Interval Start'], utc=True)
-                    live_series = df_live.set_index('Interval Start')[price_col]
+                    # Dynamically map the time column
+                    time_col = "Interval Start" if "Interval Start" in df_live.columns else df_live.columns[0]
+                    for col in df_live.columns:
+                        if col.lower() in ["interval_start_utc", "interval start", "time"]:
+                            time_col = col
+                            break
+                            
+                    # Dynamically map the price column
+                    actual_price_col = price_col
+                    if price_col not in df_live.columns:
+                        for col in df_live.columns:
+                            if col.lower() == price_col.lower() or "price" in col.lower() or "lmp" in col.lower():
+                                actual_price_col = col
+                                break
+
+                    df_live[time_col] = pd.to_datetime(df_live[time_col], utc=True)
+                    live_series = df_live.set_index(time_col)[actual_price_col]
                     
         except Exception as e:
             st.sidebar.error(f"API Live Edge Error: {e}")
 
-    # 4. Stitch DB and API together securely
+    # 3. Stitch DB and API together securely
     combined_series = pd.concat([historical_series, live_series]).sort_index()
     combined_series = combined_series[~combined_series.index.duplicated(keep='last')]
     
-    # 5. Ultimate Failsafe if offline/no data
+    # Ultimate Failsafe if offline/no data
     if combined_series.empty:
         return pd.Series(np.random.uniform(5, 60, 8760 * 12))
         
     return combined_series
 
 # Execute the dual-fetch pipeline
-price_hist = get_live_data(gs_api_key, target_market)
+price_hist = get_live_data(gs_api_key, selected_iso, selected_node)
 breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
 
 def calculate_period_live_metrics(price_series, breakeven_val, ideal_m, ideal_b, days, w_pct, s_pct):
@@ -161,7 +210,7 @@ t_baseload, t_hardin, t_evolution, t_tax, t_volatility, t_price_dsets = st.tabs(
 # THERMAL BASELOAD OS (HARDIN, MT)
 # ==========================================
 with t_baseload:
-    st.markdown("### 🏭 100 MW Thermal Baseload Optimization (Hardin, MT)")
+    st.markdown(f"### 🏭 100 MW Thermal Baseload Optimization ({selected_node})")
     st.write("Optimizing a 'Must-Run' thermal asset requires a synthetic floor to mitigate losses during negative pricing, and a peak multiplier (BESS) to capitalize on extreme summer scarcity.")
     
     coal_mw = 100
@@ -224,7 +273,7 @@ with t_baseload:
 # ==========================================
 with t_hardin:
     st.markdown("### 🏔️ BTC and Storage Revenue")
-    st.write("This dual-view matrix visualizes total gross revenue and net profit logic across 1 year of real-time telemetry. Net Profit incorporates the fixed $55/MWh sunk production cost of the thermal asset.")
+    st.write(f"This dual-view matrix visualizes total gross revenue and net profit logic across 1 year of real-time telemetry at **{selected_node}**. Net Profit incorporates the fixed $55/MWh sunk production cost of the thermal asset.")
     
     def get_hardin_metrics(series, days, breakeven_val, miner_mw, batt_mw, coal_mw, coal_cost):
         try:
@@ -540,13 +589,13 @@ with t_price_dsets:
     st.markdown("## 📊 Price Datasets")
     col_live, col_hist = st.columns(2)
     with col_live:
-        st.markdown("**🕒 24-Hour Live-Time Price Data**")
+        st.markdown(f"**🕒 24-Hour Live-Time Price Data ({selected_node})**")
         if len(price_hist) > 0:
             st.line_chart(price_hist.iloc[-288:]) 
         else:
             st.write("Waiting for telemetry data...")
     with col_hist:
-        st.markdown("**📈 Historical Price Dataset**")
+        st.markdown(f"**📈 Historical Price Dataset ({selected_node})**")
         if len(price_hist) > 0:
             st.line_chart(price_hist)
         else:
