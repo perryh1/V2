@@ -2,10 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import requests
-import gridstatus
+import sqlite3
 import os
-import pickle
 from datetime import datetime, timedelta
 
 # --- Graceful Import for Enterprise API ---
@@ -21,26 +19,7 @@ st.set_page_config(layout="wide", page_title="Hybrid OS | Grid Intelligence")
 DASHBOARD_PASSWORD = "123"
 BATT_COST_PER_MW = 897404.0 
 CORP_TAX_RATE = 0.21 
-CACHE_FILE = "ercot_price_cache.pkl"
-CACHE_EXPIRY_HOURS = 1
-
-def load_cached_prices():
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, 'rb') as f:
-                data = pickle.load(f)
-                if data['timestamp'] > datetime.now() - timedelta(hours=CACHE_EXPIRY_HOURS):
-                    return data['prices']
-        except:
-            pass
-    return None
-
-def save_cached_prices(prices):
-    try:
-        with open(CACHE_FILE, 'wb') as f:
-            pickle.dump({'prices': prices, 'timestamp': datetime.now()}, f)
-    except:
-        pass
+DB_FILE = "api_iso_hubs_5yr.db"
 
 # --- 2. AUTHENTICATION ---
 if "password_correct" not in st.session_state: st.session_state.password_correct = False
@@ -55,7 +34,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.7 Deployment")
+st.sidebar.caption("v14.8 Deployment (Enterprise Edge)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -76,36 +55,85 @@ st.sidebar.markdown("### 🏛️ Starting Hardware")
 m_load_in = st.sidebar.number_input("Starting Miner Load (MW)", value=0)
 b_mw_in = st.sidebar.number_input("Starting Battery Size (MW)", value=0)
 
-# --- 4. DATA PROCESSING ---
+# --- 4. ENTERPRISE DATA PROCESSING (DB + API EDGE) ---
 @st.cache_data(ttl=300)
 def get_live_data(api_key, market):
-    cached = load_cached_prices()
-    if cached is not None: return cached
-    end_date = pd.Timestamp.now(tz="US/Central")
-    start_date = end_date - pd.Timedelta(days=365) 
+    # 1. Map target selection to database/API query parameters
+    if "ERCOT" in market:
+        iso, loc = "ERCOT", "HB_WEST"
+        dataset = "ercot_spp_real_time_15_min"
+        node_col, price_col = "Settlement Point", "Settlement Point Price"
+    elif "SPP" in market:
+        iso, loc = "SPP", "SPP_NORTH_HUB"
+        dataset = "spp_rtm_lmp"
+        node_col, price_col = "Location", "LMP"
+    else:
+        iso, loc = "ERCOT", "HB_WEST"
+        dataset = "ercot_spp_real_time_15_min"
+        node_col, price_col = "Settlement Point", "Settlement Point Price"
+
+    historical_series = pd.Series(dtype=float)
+    live_series = pd.Series(dtype=float)
     
+    # 2. Fetch Deep History from Local SQLite DB (Loads instantly)
+    if os.path.exists(DB_FILE):
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            query = f"SELECT timestamp, price FROM historical_prices WHERE iso='{iso}' AND location='{loc}' ORDER BY timestamp ASC"
+            df_hist = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            if not df_hist.empty:
+                df_hist['timestamp'] = pd.to_datetime(df_hist['timestamp'], utc=True)
+                historical_series = df_hist.set_index('timestamp')['price']
+        except Exception as e:
+            st.sidebar.error(f"Database Query Error: {e}")
+    else:
+        st.sidebar.warning("Local DB not found. Ensure 'build_api_hubs_db.py' has been run.")
+
+    # 3. Fetch the "Live Edge" via Enterprise API
     if api_key and GS_ENTERPRISE_AVAILABLE:
         try:
             client = gridstatusio.GridStatusClient(api_key=api_key)
-            if "ERCOT" in market:
-                df = client.get_dataset(dataset="ercot_spp_real_time_15_min", start=start_date, end=end_date)
-                if df is not None and not df.empty:
-                    series = df[df['Settlement Point'] == 'HB_WEST'].set_index('Interval Start').sort_index()['Settlement Point Price']
-                    save_cached_prices(series)
-                    return series
-            elif "SPP" in market:
-                df = client.get_dataset(dataset="spp_rtm_lmp", start=start_date, end=end_date)
-                if df is not None and not df.empty:
-                    series = df.set_index('Interval Start').sort_index()['LMP'] 
-                    save_cached_prices(series)
-                    return series
+            
+            # Identify the exact second the local database ends
+            if not historical_series.empty:
+                start_date = historical_series.index[-1] + pd.Timedelta(minutes=1)
+            else:
+                # If no DB exists, fallback to a 30-day API pull
+                start_date = pd.Timestamp.now(tz="US/Central") - pd.Timedelta(days=30)
+                
+            end_date = pd.Timestamp.now(tz="US/Central")
+            
+            # Only hit the API if there is a gap to fill
+            if start_date < end_date:
+                df_live = client.get_dataset(
+                    dataset=dataset,
+                    start=start_date,
+                    end=end_date,
+                    filter_column=node_col,
+                    filter_value=loc,
+                    verbose=False
+                )
+                
+                if df_live is not None and not df_live.empty:
+                    df_live['Interval Start'] = pd.to_datetime(df_live['Interval Start'], utc=True)
+                    live_series = df_live.set_index('Interval Start')[price_col]
+                    
         except Exception as e:
-            st.sidebar.error(f"API Error: {e}")
-    elif api_key and not GS_ENTERPRISE_AVAILABLE:
-        st.sidebar.warning("gridstatusio not installed. Using fallback data.")
-        
-    return pd.Series(np.random.uniform(5, 60, 8760 * 12)) 
+            st.sidebar.error(f"API Live Edge Error: {e}")
 
+    # 4. Stitch DB and API together securely
+    combined_series = pd.concat([historical_series, live_series]).sort_index()
+    combined_series = combined_series[~combined_series.index.duplicated(keep='last')]
+    
+    # 5. Ultimate Failsafe if offline/no data
+    if combined_series.empty:
+        return pd.Series(np.random.uniform(5, 60, 8760 * 12))
+        
+    return combined_series
+
+# Execute the dual-fetch pipeline
 price_hist = get_live_data(gs_api_key, target_market)
 breakeven = (1e6 / m_eff) * (hp_cents / 100.0) / 24.0
 
@@ -290,7 +318,6 @@ with t_evolution:
     show_comparison = st.toggle("Compare Actual (Live) vs. Historic Strategy", value=True)
     h1, h2, h3 = st.columns(3)
     
-    # Simple hardcoded fallback for renewable baseline logic
     cap_2025 = 0.456 
     dm = (cap_2025 * 8760 * ideal_m * (breakeven - 12)) / 365 / (1.0 + (w_pct * 0.20))
     db = (0.12 * 8760 * ideal_b * (breakeven + 30)) / 365 / (1.0 + (s_pct * 0.25))
@@ -350,7 +377,7 @@ with t_tax:
     draw_card(cd, "4. Full Alpha", c1t, 100, 25, "Full Strategy")
 
 # ==========================================
-# NEW: RESTORED LONG-TERM VOLATILITY TAB
+# LONG-TERM VOLATILITY TAB
 # ==========================================
 with t_volatility:
     st.subheader("📈 Institutional Volatility Analysis")
@@ -368,7 +395,6 @@ with t_volatility:
 
     st.markdown("---")
     
-    # Restored ISO Pricing Distributions
     TREND_DATA_WEST = {
         "Negative (<$0)": {"2021": 0.021, "2022": 0.045, "2023": 0.062, "2024": 0.094, "2025": 0.121},
         "$0 - $0.02": {"2021": 0.182, "2022": 0.241, "2023": 0.284, "2024": 0.311, "2025": 0.335},
@@ -434,7 +460,6 @@ with t_volatility:
         "$1.00 - $5.00": {"2021": 0.002, "2022": 0.001, "2023": 0.002, "2024": 0.001, "2025": 0.002}
     }
     
-    # Restored interactive sub-tabs
     iso_tab1, iso_tab2, iso_tab3, iso_tab4 = st.tabs(["🔆 ERCOT (HB_WEST)", "⚡ CAISO (NP-15)", "📊 PJM (Eastern)", "🌪️ SPP (Plains)"])
     
     with iso_tab1:
