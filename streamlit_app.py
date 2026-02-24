@@ -74,7 +74,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.17 Deployment (Core 8 Optimization)")
+st.sidebar.caption("v14.18 Deployment (Status Specificity)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -118,6 +118,7 @@ def get_live_data(api_key, iso, loc):
             if not historical_series.empty:
                 start_date = historical_series.index[-1] + pd.Timedelta(minutes=1)
             else:
+                # Synchronized to 1 day to match user's local quota-protection edit
                 start_date = pd.Timestamp.now(tz="US/Central") - pd.Timedelta(days=1)
                 
             end_date = pd.Timestamp.now(tz="US/Central")
@@ -171,10 +172,10 @@ price_hist, using_placeholder = get_live_data(gs_api_key, selected_iso, selected
 st.sidebar.write("---")
 if using_placeholder:
     st.sidebar.error("🔴 **DATA STATUS:** Synthetic Placeholder")
-    st.sidebar.caption("Local DB not found and API fetch failed. All metrics shown are generated placeholders.")
+    st.sidebar.caption(f"Local DB not found and API fetch failed for **{selected_iso} - {selected_node}**. All pricing metrics shown are generated placeholders.")
 else:
     st.sidebar.success("🟢 **DATA STATUS:** Verified Live & DB")
-    st.sidebar.caption("Telemetry synced securely with local database and gridstatus.io.")
+    st.sidebar.caption(f"Telemetry for **{selected_iso} - {selected_node}** synced securely with local database and gridstatus.io.")
 
 st.sidebar.write("---")
 st.sidebar.markdown("### ⚡ Generation Mix (Renewables)")
