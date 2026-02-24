@@ -342,7 +342,7 @@ with t_evolution:
                 st.markdown(f"<h2 style='color:#28a745;'>${(ma_live + ba_live):,.0f}</h2>", unsafe_allow_html=True)
 
 with t_tax:
-    # ==========================================
+# ==========================================
 # INSTITUTIONAL TAX STRATEGY TAB
 # ==========================================
 with t_tax:
