@@ -74,7 +74,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.13 Deployment (Cloud Patch & Status)")
+st.sidebar.caption("v14.14 Deployment (Renewable Transparency)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -156,7 +156,7 @@ def get_live_data(api_key, iso, loc):
     combined_series = pd.concat([historical_series, live_series]).sort_index()
     combined_series = combined_series[~combined_series.index.duplicated(keep='last')]
     
-    # 4. Ultimate Failsafe if offline/no data (PATCHED: Now includes DatetimeIndex)
+    # 4. Ultimate Failsafe if offline/no data
     if combined_series.empty:
         is_synthetic = True
         dummy_idx = pd.date_range(end=pd.Timestamp.now(tz="US/Central"), periods=8760*12, freq='5min')
@@ -352,6 +352,30 @@ with t_hardin:
 # ==========================================
 with t_evolution:
     st.markdown(f"### ⚙️ Renewable Performance Summary")
+    
+    # --- NEW: Location Mapping & Methodology Info ---
+    geo_proxy = {
+        "ERCOT": "Odessa, Texas",
+        "SPP": "Hardin, Montana",
+        "CAISO": "Fresno, California",
+        "PJM": "Chicago, Illinois",
+        "NYISO": "Albany, New York",
+        "MISO": "Indianapolis, Indiana"
+    }
+    site_city_state = geo_proxy.get(selected_iso, "Target Proxy Site")
+    
+    st.info(f"📍 **Site Location Proxy:** {site_city_state} ({selected_node})  |  📡 **Data Source:** NREL SAM (National Renewable Energy Laboratory) & Gridstatus.io")
+    
+    with st.expander("📊 View Wind & Solar Calculation Methodology"):
+        st.markdown(f"""
+        **Meteorological Data & Capacity Factors:**
+        * **Data Source:** Meteorological conditions (wind speed, solar irradiance) are proxied using the **NREL System Advisor Model (SAM)** for {site_city_state}. Pricing telemetry is sourced via **Gridstatus.io**.
+        * **Calculation Method:** The dashboard calculates baseline effective output using a blended regional Capacity Factor (CF).
+        * **Formula Used:** `Effective Generation = (Nameplate MW) × 35.8% Blended CF`
+        * **Details:** The `35.8%` represents a typical historical blend of utility-scale Solar (~20-25% NCF) and Onshore Wind (~40-45% NCF) for the target region. The capacity mix dynamically impacts the optimal BESS/Miner sizing ratio beneath the hood.
+        """)
+    # ----------------------------------------------
+    
     curr_p = price_hist.iloc[-1] if len(price_hist) > 0 else 0
     total_gen = solar_cap + wind_cap
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
