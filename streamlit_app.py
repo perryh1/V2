@@ -304,8 +304,50 @@ with t_hardin:
         fig.update_layout(barmode='stack', title="Gross Revenue Composition", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
 
+# ==========================================
+# RENEWABLE EVOLUTION TAB
+# ==========================================
 with t_evolution:
     st.markdown(f"### ⚙️ Renewable Performance Summary")
+    
+    geo_node_proxy = {
+        "HB_WEST": "Odessa, Texas",
+        "HB_NORTH": "Dallas, Texas",
+        "HB_SOUTH": "Corpus Christi, Texas",
+        "HB_HOUSTON": "Houston, Texas",
+        "LZ_WEST": "Midland, Texas",
+        "LZ_SOUTH": "Brownsville, Texas",
+        "SPP_NORTH_HUB": "Hardin, Montana",
+        "SPP_SOUTH_HUB": "Oklahoma City, Oklahoma",
+        "TH_NP15_GEN-APND": "San Francisco, California",
+        "TH_SP15_GEN-APND": "Los Angeles, California",
+        "TH_ZP26_GEN-APND": "Bakersfield, California",
+        "WESTERN HUB": "Pittsburgh, Pennsylvania",
+        "N ILLINOIS HUB": "Chicago, Illinois",
+        "AEP GEN HUB": "Columbus, Ohio",
+        "CAPITL": "Albany, New York",
+        "HUD VL": "Poughkeepsie, New York",
+        "N.Y.C.": "New York City, New York",
+        "WEST": "Buffalo, New York",
+        "ILLINOIS.HUB": "Springfield, Illinois",
+        "INDIANA.HUB": "Indianapolis, Indiana",
+        "MINN.HUB": "Minneapolis, Minnesota",
+        "TEXAS.HUB": "Beaumont, Texas"
+    }
+    
+    site_city_state = geo_node_proxy.get(selected_node, "Target Proxy Site")
+    
+    st.info(f"📍 **Site Location Proxy:** {site_city_state} ({selected_node})  |  📡 **Data Source:** NREL SAM (National Renewable Energy Laboratory) & Gridstatus.io")
+    
+    with st.expander("📊 View Wind & Solar Calculation Methodology"):
+        st.markdown(f"""
+        **Meteorological Data & Capacity Factors:**
+        * **Data Source:** Meteorological conditions (wind speed, solar irradiance) are proxied using the **NREL System Advisor Model (SAM)** for {site_city_state}. Pricing telemetry is sourced via **Gridstatus.io**.
+        * **Calculation Method:** The dashboard calculates baseline effective output using a blended regional Capacity Factor (CF).
+        * **Formula Used:** `Effective Generation = (Nameplate MW) × 35.8% Blended CF`
+        * **Details:** The `35.8%` represents a typical historical blend of utility-scale Solar (~20-25% NCF) and Onshore Wind (~40-45% NCF) for the target region. The capacity mix dynamically impacts the optimal BESS/Miner sizing ratio beneath the hood.
+        """)
+    
     curr_p = price_hist.iloc[-1] if len(price_hist) > 0 else 0
     total_gen = solar_cap + wind_cap
     s_pct = solar_cap / total_gen if total_gen > 0 else 0.5
@@ -320,6 +362,22 @@ with t_evolution:
 
     st.markdown("---")
     st.subheader("📅 Comparative Alpha Tracking")
+    
+    with st.expander("🔬 View Alpha Calculation Methodology"):
+        st.markdown("""
+        **1. Live Alpha (Actuals):**
+        Calculated directly from the actual 5-minute interval telemetry for your selected Node.
+        * **Mining Revenue:** `Sum of Max(0, Breakeven - Grid Price) × Miner MW` for all captured intervals in the period.
+        * **Battery Revenue:** `Sum of Max(0, Grid Price - Breakeven) × Battery MW` for all captured intervals in the period.
+        * **Weighting:** The raw revenue capture is then dynamically weighted by the real-time capacity mix (Solar vs Wind ratios).
+
+        **2. Historic Predict (Theoretical Baseline):**
+        Calculated using macro-level 2025 systemic volatility estimates.
+        * **Mining Revenue:** Assumes the grid price clears below your breakeven threshold exactly 45.6% of the year, modeling a conservative $12/MWh average profit margin during those specific hours.
+        * **Battery Revenue:** Assumes a 12% annual dispatch factor specifically reserved for scarcity events, capturing a modeled $30/MWh average export premium.
+        * **Scaling:** These annualized theoretical figures are prorated strictly down to the exact 24H, 7D, or 30D lookback windows to allow direct variance comparison against live data.
+        """)
+    
     show_comparison = st.toggle("Compare Actual (Live) vs. Historic Strategy", value=True)
     h1, h2, h3 = st.columns(3)
     
@@ -337,10 +395,13 @@ with t_evolution:
             st.metric("Avg Grid Price", f"${avg_p:.2f}")
             if show_comparison:
                 st.write(f"**Live Alpha:** :green[${(ma_live + ba_live):,.0f}]")
+                st.caption(f"⛏️ ${ma_live:,.0f} | 🔋 ${ba_live:,.0f}")
                 st.write(f"**Historic Predict:** ${(ma_hist + ba_hist):,.0f}")
+                delta = (ma_live + ba_live) - (ma_hist + ba_hist)
+                st.caption(f"Variance: :{'green' if delta > 0 else 'red'}[${delta:,.0f}]")
             else:
                 st.markdown(f"<h2 style='color:#28a745;'>${(ma_live + ba_live):,.0f}</h2>", unsafe_allow_html=True)
-
+            st.write("---")
 # ==========================================
 # INSTITUTIONAL TAX STRATEGY TAB
 # ==========================================
