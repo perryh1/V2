@@ -342,8 +342,46 @@ with t_evolution:
                 st.markdown(f"<h2 style='color:#28a745;'>${(ma_live + ba_live):,.0f}</h2>", unsafe_allow_html=True)
 
 with t_tax:
+    # ==========================================
+# INSTITUTIONAL TAX STRATEGY TAB
+# ==========================================
+with t_tax:
     st.subheader("🏛️ Institutional Tax Strategy")
-    st.write("Configurable Federal ITC strategy block (Code Retained).")
+    st.markdown("---")
+    tx1, tx2, tx3, tx4 = st.columns(4)
+    itc_rate = (0.3 if tx1.checkbox("30% Base ITC", True) else 0) + (0.1 if tx2.checkbox("10% Domestic Content", False) else 0)
+    itc_u_val = tx3.selectbox("Underserved Bonus", [0.0, 0.1, 0.2], format_func=lambda x: f"{int(x*100)}%")
+    itc_total = itc_rate + itc_u_val
+    macrs_on = tx4.checkbox("Apply 100% MACRS Bonus", True)
+
+    def get_metrics(m, b, itc_v, mc_on):
+        ma = (cap_2025 * 8760 * m * (breakeven - 12)) * (1.0 + (0.5 * 0.20))
+        ba = (0.12 * 8760 * b * (breakeven + 30)) * (1.0 + (0.5 * 0.25))
+        m_c = ((m * 1e6) / m_eff) * m_cost
+        b_c = b * BATT_COST_PER_MW
+        iv = b_c * itc_v
+        ms = ((m_c + b_c) - (0.5 * iv)) * CORP_TAX_RATE if mc_on else 0
+        nc = (m_c + b_c) - iv - ms
+        irr, roi = (ma+ba)/nc*100 if nc > 0 else 0, nc/(ma+ba) if (ma+ba)>0 else 0
+        return ma, ba, nc, irr, roi, m_c, b_c, iv, ms
+
+    c00, c10, c0t, c1t = get_metrics(m_load_in, b_mw_in, 0, False), get_metrics(100, 25, 0, False), get_metrics(m_load_in, b_mw_in, itc_total, macrs_on), get_metrics(100, 25, itc_total, macrs_on)
+    ca, cb, cc, cd = st.columns(4)
+    
+    def draw_card(col, lbl, met, m_v, b_v, sub):
+        with col:
+            st.write(f"### {lbl}"); st.caption(f"{sub} ({m_v}MW/{b_v}MW)")
+            st.markdown(f"<h1 style='color: #28a745; margin-bottom: 0;'>${(met[0]+met[1]):,.0f}</h1>", unsafe_allow_html=True)
+            st.markdown(f"**↑ IRR: {met[3]:.1f}% | Payback: {met[4]:.2f} Y**")
+            st.write(f" * ⚙️ Miner Capex: `${met[5]:,.0f}`")
+            st.write(f" * 🔋 Battery Capex: `${met[6]:,.0f}`")
+            if met[7] > 0 or met[8] > 0: st.write(f" * 🛡️ **Shields (ITC+MACRS):** :green[(`-${(met[7]+met[8]):,.0f}`)]")
+            st.write("---")
+            
+    draw_card(ca, "1. Baseline", c00, m_load_in, b_mw_in, "Current Setup")
+    draw_card(cb, "2. Optimized", c10, 100, 25, "Ideal Ratio")
+    draw_card(cc, "3. Strategy", c0t, m_load_in, b_mw_in, "Incentivized")
+    draw_card(cd, "4. Full Alpha", c1t, 100, 25, "Full Strategy")
 
 with t_volatility:
     st.subheader(f"📈 Institutional Volatility Analysis: {selected_iso}")
