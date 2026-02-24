@@ -387,13 +387,61 @@ with t_tax:
 # ==========================================
 with t_volatility:
     st.subheader(f"📈 Institutional Volatility Analysis: {selected_iso}")
-    st.write(f"This dynamic matrix calculates the exact historical pricing distribution for **{selected_node}** directly from the local database, mapping millions of raw clearing prices into institutional volatility brackets.")
+    st.write(f"This dynamic matrix analyzes the historical pricing distribution patterns for **{selected_node}** to identify arbitrage opportunities and regional risk profiles.")
+    
+    st.markdown("""
+    **The analysis focuses on two critical pricing boundaries:**
+    * **1. The Lower Bound:** Exponential growth of negative pricing due to excess supply (e.g., solar saturation). Hubs like HB_WEST, for example, are projected to reach over 12% negative price frequency by 2025. This creates the ultimate synthetic floor for "Must-Run" baseload and a pure profit center for flexible mining loads.
+    * **2. The Upper Bound:** Scarcity and peak pricing driven by the "Duck Curve Effect." This extreme upside volatility is the primary revenue driver for the Battery Alpha, allowing high-premium energy exports when the grid is most stressed.
+    """)
     st.markdown("---")
 
     if not price_hist.empty:
         df_vol = pd.DataFrame({'price': price_hist})
         df_vol['year'] = df_vol.index.year.astype(str)
         
+        c_chart1, c_chart2 = st.columns(2)
+        
+        with c_chart1:
+            st.markdown("#### 📊 Price Distribution (Histogram)")
+            hist_data = df_vol[(df_vol['price'] > -50) & (df_vol['price'] < 300)]['price']
+            fig_hist = go.Figure(data=[go.Histogram(x=hist_data, nbinsx=100, marker_color='#0052FF')])
+            fig_hist.update_layout(
+                margin=dict(l=0, r=0, t=30, b=0), 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                xaxis_title="Price ($/MWh)", 
+                yaxis_title="Frequency"
+            )
+            st.plotly_chart(fig_hist, use_container_width=True)
+            
+        with c_chart2:
+            st.markdown("#### 📉 Price Duration Curve")
+            sorted_prices = np.sort(df_vol['price'])[::-1]
+            percentiles = np.arange(1, len(sorted_prices) + 1) / len(sorted_prices) * 100
+            fig_curve = go.Figure(data=[go.Scatter(x=percentiles, y=sorted_prices, mode='lines', line=dict(color='#F7931A', width=2))])
+            fig_curve.update_layout(
+                margin=dict(l=0, r=0, t=30, b=0), 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                xaxis_title="% of Time Price Exceeded", 
+                yaxis_title="Price ($/MWh)", 
+                yaxis_range=[-50, 500]
+            )
+            st.plotly_chart(fig_curve, use_container_width=True)
+        
+        st.markdown("---")
+        
+        st.markdown("#### 📐 Key Statistical Metrics")
+        s1, s2, s3, s4, s5 = st.columns(5)
+        s1.metric("Mean Price", f"${df_vol['price'].mean():.2f}")
+        s2.metric("Median Price", f"${df_vol['price'].median():.2f}")
+        s3.metric("Std Deviation", f"${df_vol['price'].std():.2f}", "Volatility Index")
+        s4.metric("Maximum Peak", f"${df_vol['price'].max():,.2f}")
+        s5.metric("Minimum Drop", f"${df_vol['price'].min():,.2f}")
+        
+        st.markdown("---")
+
         bins = [-np.inf, 0, 20, 40, 60, 80, 100, 150, 250, 1000, np.inf]
         labels_kwh = [
             "Negative (<$0)", "$0 - $0.02", "$0.02 - $0.04", "$0.04 - $0.06", 
