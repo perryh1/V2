@@ -78,7 +78,7 @@ st.sidebar.caption("v14.18 Deployment (Status Specificity)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
-gs_api_key = st.sidebar.text_input("API Key (gridstatus.io)", value="ca4d17f58f114c8aa7f60b2f33e2a581", type="password")
+gs_api_key = st.sidebar.text_input("API Key (gridstatus.io)", value="17fd6eb144fe46afa0c0894453ba867d", type="password")
 
 # --- Dependent Dropdowns for ISO and Node ---
 selected_iso = st.sidebar.selectbox("Select ISO", list(ISO_MARKETS.keys()))
