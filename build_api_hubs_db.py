@@ -1,6 +1,6 @@
 import pandas as pd
 import sqlite3
-import requests
+import gridstatusio
 from datetime import datetime
 import time
 
@@ -13,8 +13,8 @@ YEARS_BACK = 1
 ISO_API_MAPPINGS = {
     "ERCOT": {
         "dataset": "ercot_spp_real_time_15_min",
-        "node_col": "location", # Universal backend standard
-        "price_col": "spp",     
+        "node_col": "location",
+        "price_col": "spp",
         "locations": ["HB_WEST", "HB_NORTH"]
     },
     "SPP": {
@@ -76,37 +76,13 @@ def get_smart_resume_date(conn, iso, loc, default_start):
     
     return default_start
 
-def fetch_direct_api_data(dataset, start_date, end_date, filter_col, filter_val):
-    """Bypasses the gridstatusio package entirely for direct REST API communication"""
-    url = f"https://api.gridstatus.io/v1/datasets/{dataset}/query"
-    headers = {"Authorization": f"Basic {API_KEY}"}
-    
-    params = {
-        "start_time": start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        "end_time": end_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        "limit": 100000,
-        filter_col: filter_val
-    }
-
-    response = requests.get(url, headers=headers, params=params)
-    
-    if response.status_code == 200:
-        data = response.json()
-        if "data" in data and len(data["data"]) > 0:
-            return pd.DataFrame(data["data"])
-    elif response.status_code in [401, 403]:
-        raise Exception(f"API Quota Limit or Invalid Key: {response.text}")
-    else:
-        raise Exception(f"HTTP {response.status_code}: {response.text}")
-         
-    return pd.DataFrame()
-
 def fetch_and_store_data(conn):
+    client = gridstatusio.GridStatusClient(api_key=API_KEY)
     end_date = pd.Timestamp.now(tz="US/Central").floor('D')
     global_start_date = end_date - pd.Timedelta(days=365 * YEARS_BACK)
     
     print(f"=====================================================")
-    print(f" INITIATING 1-YEAR CORE 8 DATA PULL (REST API BYPASS)")
+    print(f" INITIATING 1-YEAR CORE 8 DATA PULL (v1.5 SDK)")
     print(f" Target Lookback: {YEARS_BACK} Year")
     print(f"=====================================================\n")
 
@@ -117,6 +93,7 @@ def fetch_and_store_data(conn):
         
         for loc in metadata["locations"]:
             print(f"\n   📍 Target Hub: {loc} ({iso_name})")
+            
             current_date = get_smart_resume_date(conn, iso_name, loc, global_start_date)
             
             if current_date >= end_date:
@@ -129,18 +106,28 @@ def fetch_and_store_data(conn):
                 chunk_end = min(current_date + pd.Timedelta(days=30), end_date)
                 
                 try:
-                    df = fetch_direct_api_data(dataset_id, current_date, chunk_end, node_col, loc)
+                    df = client.get_dataset(
+                        dataset=dataset_id,
+                        start=current_date,
+                        end=chunk_end,
+                        filter_column=node_col,
+                        filter_value=loc,
+                        verbose=False
+                    )
                     
-                    if not df.empty:
-                        # Ensure columns are lowercase for safe matching
-                        df.columns = [c.lower() for c in df.columns]
+                    if df is not None and not df.empty:
+                        # Find time column
+                        time_col = "Interval Start" if "Interval Start" in df.columns else df.columns[0]
+                        for col in df.columns:
+                            if col.lower() in ["interval_start_utc", "interval start", "time"]:
+                                time_col = col
+                                break
                         
-                        time_col = "interval_start_utc" if "interval_start_utc" in df.columns else df.columns[0]
-                        actual_price_col = price_col.lower()
-                        
-                        if actual_price_col not in df.columns:
+                        # Find price column
+                        actual_price_col = price_col
+                        if price_col not in df.columns:
                             for col in df.columns:
-                                if "price" in col or "lmp" in col or "spp" in col:
+                                if col.lower() == price_col.lower() or "price" in col.lower() or "lmp" in col.lower() or "spp" in col.lower():
                                     actual_price_col = col
                                     break
 
@@ -151,7 +138,6 @@ def fetch_and_store_data(conn):
                             'price': pd.to_numeric(df[actual_price_col], errors='coerce')
                         })
                         
-                        # Drop intervals with NaN price values
                         db_df = db_df.dropna(subset=['price'])
                         
                         db_df.to_sql('historical_prices_temp', conn, if_exists='replace', index=False)
@@ -161,13 +147,11 @@ def fetch_and_store_data(conn):
                         ''')
                         conn.commit()
                         print(f"      ✓ Downloaded & Saved: {current_date.strftime('%Y-%m-%d')} to {chunk_end.strftime('%Y-%m-%d')}")
-                    else:
-                        print(f"      ⚠️ No data returned for {current_date.strftime('%Y-%m-%d')} - {chunk_end.strftime('%Y-%m-%d')}")
                         
                 except Exception as e:
                     print(f"      ⚠️ API Error ({current_date.strftime('%Y-%m-%d')}): {e}")
-                    if "Quota" in str(e) or "Key" in str(e):
-                        print("\n⛔ CRITICAL: API Quota Limit Reached or Key Blocked. Terminating script.")
+                    if "403" in str(e) or "limit reached" in str(e).lower() or "Unauthorized" in str(e):
+                        print("\n⛔ CRITICAL: API Quota Limit Reached. Terminating script.")
                         return
                 
                 current_date = chunk_end
