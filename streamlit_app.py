@@ -74,7 +74,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.14 Deployment (Renewable Transparency)")
+st.sidebar.caption("v14.15 Deployment (Geographic Mapping)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -353,16 +353,39 @@ with t_hardin:
 with t_evolution:
     st.markdown(f"### ⚙️ Renewable Performance Summary")
     
-    # --- NEW: Location Mapping & Methodology Info ---
-    geo_proxy = {
-        "ERCOT": "Odessa, Texas",
-        "SPP": "Hardin, Montana",
-        "CAISO": "Fresno, California",
-        "PJM": "Chicago, Illinois",
-        "NYISO": "Albany, New York",
-        "MISO": "Indianapolis, Indiana"
+    # --- NEW: Node-Specific Geographic Proxy Mapping ---
+    geo_node_proxy = {
+        # ERCOT Nodes
+        "HB_WEST": "Odessa, Texas",
+        "HB_NORTH": "Dallas, Texas",
+        "HB_SOUTH": "Corpus Christi, Texas",
+        "HB_HOUSTON": "Houston, Texas",
+        "LZ_WEST": "Midland, Texas",
+        "LZ_SOUTH": "Brownsville, Texas",
+        # SPP Nodes
+        "SPP_NORTH_HUB": "Hardin, Montana",
+        "SPP_SOUTH_HUB": "Oklahoma City, Oklahoma",
+        # CAISO Nodes
+        "TH_NP15_GEN-APND": "San Francisco, California",
+        "TH_SP15_GEN-APND": "Los Angeles, California",
+        "TH_ZP26_GEN-APND": "Bakersfield, California",
+        # PJM Nodes
+        "WESTERN HUB": "Pittsburgh, Pennsylvania",
+        "N ILLINOIS HUB": "Chicago, Illinois",
+        "AEP GEN HUB": "Columbus, Ohio",
+        # NYISO Nodes
+        "CAPITL": "Albany, New York",
+        "HUD VL": "Poughkeepsie, New York",
+        "N.Y.C.": "New York City, New York",
+        "WEST": "Buffalo, New York",
+        # MISO Nodes
+        "ILLINOIS.HUB": "Springfield, Illinois",
+        "INDIANA.HUB": "Indianapolis, Indiana",
+        "MINN.HUB": "Minneapolis, Minnesota",
+        "TEXAS.HUB": "Beaumont, Texas"
     }
-    site_city_state = geo_proxy.get(selected_iso, "Target Proxy Site")
+    
+    site_city_state = geo_node_proxy.get(selected_node, "Target Proxy Site")
     
     st.info(f"📍 **Site Location Proxy:** {site_city_state} ({selected_node})  |  📡 **Data Source:** NREL SAM (National Renewable Energy Laboratory) & Gridstatus.io")
     
@@ -456,7 +479,7 @@ with t_tax:
 # ==========================================
 with t_volatility:
     st.subheader(f"📈 Institutional Volatility Analysis: {selected_iso}")
-    st.write(f"This dynamic matrix calculates the exact historical pricing distribution for **{selected_node}** directly from the 5-year local database, mapping millions of raw clearing prices into institutional volatility brackets.")
+    st.write(f"This dynamic matrix calculates the exact historical pricing distribution for **{selected_node}** directly from the local database, mapping millions of raw clearing prices into institutional volatility brackets.")
     st.markdown("---")
 
     if not price_hist.empty:
