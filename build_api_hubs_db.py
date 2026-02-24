@@ -13,8 +13,8 @@ YEARS_BACK = 1
 ISO_API_MAPPINGS = {
     "ERCOT": {
         "dataset": "ercot_spp_real_time_15_min",
-        "node_col": "settlement_point", 
-        "price_col": "settlement_point_price",
+        "node_col": "location",  # <-- FIXED: Standardized GridStatus column
+        "price_col": "spp",      # <-- FIXED: Standardized price column
         "locations": ["HB_WEST", "HB_NORTH"]
     },
     "SPP": {
@@ -120,7 +120,8 @@ def fetch_and_store_data(conn):
                         price_col_actual = df.columns[-1] 
                         
                         for col in df.columns:
-                            if col.lower() == price_col.lower() or "price" in col.lower() or "lmp" in col.lower():
+                            # Added "spp" to the fallback checker just to be safe
+                            if col.lower() == price_col.lower() or "price" in col.lower() or "lmp" in col.lower() or "spp" in col.lower():
                                 price_col_actual = col
                                 break
 
