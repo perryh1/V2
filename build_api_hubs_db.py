@@ -5,16 +5,17 @@ from datetime import datetime
 import time
 
 # --- CONFIGURATION ---
-API_KEY = "ca4d17f58f114c8aa7f60b2f33e2a581"
-DB_NAME = "api_iso_hubs_5yr.db"
-YEARS_BACK = 1 # Recommended reduction to avoid blowing past API limits
+API_KEY = "17fd6eb144fe46afa0c0894453ba867d"
+DB_NAME = "api_iso_hubs_1yr.db"
+YEARS_BACK = 1
 
+# Trimmed to the "Core 8" to stay safely under 1,000,000 row API limit
 ISO_API_MAPPINGS = {
     "ERCOT": {
         "dataset": "ercot_spp_real_time_15_min",
         "node_col": "settlement_point", 
         "price_col": "settlement_point_price",
-        "locations": ["HB_WEST", "HB_NORTH", "HB_SOUTH", "HB_HOUSTON", "LZ_WEST", "LZ_SOUTH"]
+        "locations": ["HB_WEST", "HB_NORTH"]
     },
     "SPP": {
         "dataset": "spp_lmp_real_time_5_min", 
@@ -26,25 +27,25 @@ ISO_API_MAPPINGS = {
         "dataset": "caiso_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "locations": ["TH_NP15_GEN-APND", "TH_SP15_GEN-APND", "TH_ZP26_GEN-APND"]
+        "locations": ["TH_NP15_GEN-APND", "TH_SP15_GEN-APND"]
     },
     "PJM": {
         "dataset": "pjm_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "locations": ["WESTERN HUB", "N ILLINOIS HUB", "AEP GEN HUB"]
+        "locations": ["WESTERN HUB"]
     },
     "NYISO": {
         "dataset": "nyiso_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "locations": ["CAPITL", "HUD VL", "N.Y.C.", "WEST"]
+        "locations": ["HUD VL"]
     },
     "MISO": {
         "dataset": "miso_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "locations": ["ILLINOIS.HUB", "INDIANA.HUB", "MINN.HUB", "TEXAS.HUB"]
+        "locations": ["INDIANA.HUB"]
     }
 }
 
@@ -65,15 +66,12 @@ def setup_database():
     return conn
 
 def get_smart_resume_date(conn, iso, loc, default_start):
-    """Queries the DB for the latest timestamp for a specific hub to prevent duplicate API requests."""
     cursor = conn.cursor()
     cursor.execute("SELECT MAX(timestamp) FROM historical_prices WHERE iso=? AND location=?", (iso, loc))
     result = cursor.fetchone()[0]
     
     if result:
-        # DB returns a string, convert it to pandas datetime
         latest_db_time = pd.to_datetime(result, utc=True)
-        # Start exactly 1 interval after our last saved row
         return latest_db_time + pd.Timedelta(minutes=1)
     
     return default_start
@@ -84,8 +82,8 @@ def fetch_and_store_data(conn):
     global_start_date = end_date - pd.Timedelta(days=365 * YEARS_BACK)
     
     print(f"=====================================================")
-    print(f" INITIATING SMART-RESUME INSTITUTIONAL DATA PULL")
-    print(f" Target Lookback: {YEARS_BACK} Years")
+    print(f" INITIATING 1-YEAR CORE 8 DATA PULL")
+    print(f" Target Lookback: {YEARS_BACK} Year")
     print(f"=====================================================\n")
 
     for iso_name, metadata in ISO_API_MAPPINGS.items():
@@ -96,7 +94,6 @@ def fetch_and_store_data(conn):
         for loc in metadata["locations"]:
             print(f"\n   📍 Target Hub: {loc} ({iso_name})")
             
-            # SMART RESUME: Check the DB for where we left off
             current_date = get_smart_resume_date(conn, iso_name, loc, global_start_date)
             
             if current_date >= end_date:
@@ -144,15 +141,14 @@ def fetch_and_store_data(conn):
                         
                 except Exception as e:
                     print(f"      ⚠️ API Error ({current_date.strftime('%Y-%m-%d')}): {e}")
-                    # If we hit a hard 403 quota limit, we should stop the script entirely
                     if "403" in str(e) or "limit reached" in str(e).lower():
-                        print("\n⛔ CRITICAL: API Quota Limit Reached. Terminating script to prevent further errors.")
+                        print("\n⛔ CRITICAL: API Quota Limit Reached. Terminating script.")
                         return
                 
                 current_date = chunk_end
                 time.sleep(1.0) 
 
-    print("\n✅ API Database build complete!")
+    print("\n✅ API Database Core 8 build complete!")
 
 if __name__ == "__main__":
     db_conn = setup_database()
