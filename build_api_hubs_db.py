@@ -1,6 +1,6 @@
 import pandas as pd
 import sqlite3
-import gridstatusio
+import requests
 from datetime import datetime
 import time
 
@@ -9,12 +9,12 @@ API_KEY = "17fd6eb144fe46afa0c0894453ba867d"
 DB_NAME = "api_iso_hubs_1yr.db"
 YEARS_BACK = 1
 
-# Trimmed to the "Core 8" to stay safely under 1,000,000 row API limit
+# Trimmed to the "Core 8"
 ISO_API_MAPPINGS = {
     "ERCOT": {
         "dataset": "ercot_spp_real_time_15_min",
-        "node_col": "location",  # <-- FIXED: Standardized GridStatus column
-        "price_col": "spp",      # <-- FIXED: Standardized price column
+        "node_col": "settlement_point", # Reverted to native name for direct API query
+        "price_col": "settlement_point_price",
         "locations": ["HB_WEST", "HB_NORTH"]
     },
     "SPP": {
@@ -76,13 +76,49 @@ def get_smart_resume_date(conn, iso, loc, default_start):
     
     return default_start
 
+def fetch_direct_api_data(dataset, start_date, end_date, filter_col, filter_val):
+    """Bypass the Python library and hit the REST API directly to avoid internal schema errors."""
+    url = f"https://api.gridstatus.io/v1/datasets/{dataset}/query"
+    
+    headers = {
+        "Authorization": f"Basic {API_KEY}"
+    }
+    
+    # Format dates as ISO 8601 strings
+    start_str = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+    end_str = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    params = {
+        "start_time": start_str,
+        "end_time": end_str,
+        "limit": 100000 
+    }
+    
+    # Add the specific filter parameter based on what the ISO uses
+    if dataset == "ercot_spp_real_time_15_min":
+        params["settlement_point"] = filter_val
+    else:
+         params["location"] = filter_val
+
+    response = requests.get(url, headers=headers, params=params)
+    
+    if response.status_code == 200:
+        data = response.json()
+        if "data" in data and len(data["data"]) > 0:
+            return pd.DataFrame(data["data"])
+    elif response.status_code in [401, 403]:
+        raise Exception("API Quota Limit Reached or Invalid Key")
+    else:
+         raise Exception(f"HTTP {response.status_code}: {response.text}")
+         
+    return pd.DataFrame()
+
 def fetch_and_store_data(conn):
-    client = gridstatusio.GridStatusClient(api_key=API_KEY)
     end_date = pd.Timestamp.now(tz="US/Central").floor('D')
     global_start_date = end_date - pd.Timedelta(days=365 * YEARS_BACK)
     
     print(f"=====================================================")
-    print(f" INITIATING 1-YEAR CORE 8 DATA PULL")
+    print(f" INITIATING 1-YEAR CORE 8 DATA PULL (DIRECT API)")
     print(f" Target Lookback: {YEARS_BACK} Year")
     print(f"=====================================================\n")
 
@@ -100,37 +136,35 @@ def fetch_and_store_data(conn):
                 print(f"      ✓ Data fully up-to-date locally. Skipping API call.")
                 continue
                 
-            print(f"      🔄 Resuming API fetch from: {current_date.strftime('%Y-%m-%d %H:%M')}")
+            print(f"      🔄 Fetching API data from: {current_date.strftime('%Y-%m-%d %H:%M')}")
             
             while current_date < end_date:
                 chunk_end = min(current_date + pd.Timedelta(days=30), end_date)
                 
                 try:
-                    df = client.get_dataset(
-                        dataset=dataset_id,
-                        start=current_date,
-                        end=chunk_end,
-                        filter_column=node_col,
-                        filter_value=loc,
-                        verbose=False
-                    )
+                    df = fetch_direct_api_data(dataset_id, current_date, chunk_end, node_col, loc)
                     
-                    if df is not None and not df.empty:
-                        time_col = "Interval Start" if "Interval Start" in df.columns else df.columns[0]
-                        price_col_actual = df.columns[-1] 
+                    if not df.empty:
+                        # Find the time column (usually 'interval_start_utc')
+                        time_col = "interval_start_utc" if "interval_start_utc" in df.columns else df.columns[0]
                         
-                        for col in df.columns:
-                            # Added "spp" to the fallback checker just to be safe
-                            if col.lower() == price_col.lower() or "price" in col.lower() or "lmp" in col.lower() or "spp" in col.lower():
-                                price_col_actual = col
-                                break
+                        # Find the price column
+                        actual_price_col = price_col
+                        if price_col not in df.columns:
+                             for col in df.columns:
+                                 if "price" in col.lower() or "lmp" in col.lower() or "spp" in col.lower():
+                                      actual_price_col = col
+                                      break
 
                         db_df = pd.DataFrame({
                             'timestamp': pd.to_datetime(df[time_col], utc=True),
                             'iso': iso_name,
                             'location': loc,
-                            'price': df[price_col_actual]
+                            'price': pd.to_numeric(df[actual_price_col], errors='coerce')
                         })
+                        
+                        # Drop rows where price failed to convert
+                        db_df = db_df.dropna(subset=['price'])
                         
                         db_df.to_sql('historical_prices_temp', conn, if_exists='replace', index=False)
                         conn.execute('''
@@ -139,11 +173,13 @@ def fetch_and_store_data(conn):
                         ''')
                         conn.commit()
                         print(f"      ✓ Downloaded & Saved: {current_date.strftime('%Y-%m-%d')} to {chunk_end.strftime('%Y-%m-%d')}")
+                    else:
+                         print(f"      ⚠️ No data returned for {current_date.strftime('%Y-%m-%d')}")
                         
                 except Exception as e:
                     print(f"      ⚠️ API Error ({current_date.strftime('%Y-%m-%d')}): {e}")
-                    if "403" in str(e) or "limit reached" in str(e).lower():
-                        print("\n⛔ CRITICAL: API Quota Limit Reached. Terminating script.")
+                    if "Quota Limit" in str(e) or "Invalid Key" in str(e):
+                        print("\n⛔ CRITICAL: API Quota Limit Reached or Key Blocked. Terminating script.")
                         return
                 
                 current_date = chunk_end
