@@ -19,15 +19,15 @@ st.set_page_config(layout="wide", page_title="Hybrid OS | Grid Intelligence")
 DASHBOARD_PASSWORD = "123"
 BATT_COST_PER_MW = 897404.0 
 CORP_TAX_RATE = 0.21 
-DB_FILE = "api_iso_hubs_5yr.db"
+DB_FILE = "api_iso_hubs_1yr.db"
 
-# Master Dictionary for Dynamic UI and API Routing
+# Master Dictionary for Dynamic UI and API Routing (Trimmed to Core 8)
 ISO_MARKETS = {
     "ERCOT": {
         "dataset": "ercot_spp_real_time_15_min",
         "node_col": "settlement_point",
         "price_col": "settlement_point_price",
-        "nodes": ["HB_WEST", "HB_NORTH", "HB_SOUTH", "HB_HOUSTON", "LZ_WEST", "LZ_SOUTH"]
+        "nodes": ["HB_WEST", "HB_NORTH"]
     },
     "SPP": {
         "dataset": "spp_lmp_real_time_5_min",
@@ -39,25 +39,25 @@ ISO_MARKETS = {
         "dataset": "caiso_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "nodes": ["TH_NP15_GEN-APND", "TH_SP15_GEN-APND", "TH_ZP26_GEN-APND"]
+        "nodes": ["TH_NP15_GEN-APND", "TH_SP15_GEN-APND"]
     },
     "PJM": {
         "dataset": "pjm_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "nodes": ["WESTERN HUB", "N ILLINOIS HUB", "AEP GEN HUB"]
+        "nodes": ["WESTERN HUB"]
     },
     "NYISO": {
         "dataset": "nyiso_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "nodes": ["CAPITL", "HUD VL", "N.Y.C.", "WEST"]
+        "nodes": ["HUD VL"]
     },
     "MISO": {
         "dataset": "miso_lmp_real_time_5_min",
         "node_col": "location",
         "price_col": "lmp",
-        "nodes": ["ILLINOIS.HUB", "INDIANA.HUB", "MINN.HUB", "TEXAS.HUB"]
+        "nodes": ["INDIANA.HUB"]
     }
 }
 
@@ -74,7 +74,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.16 Deployment (Alpha Transparency)")
+st.sidebar.caption("v14.17 Deployment (Core 8 Optimization)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -406,7 +406,6 @@ with t_evolution:
     st.markdown("---")
     st.subheader("📅 Comparative Alpha Tracking")
     
-    # --- NEW: Alpha Calculation Methodology Expander ---
     with st.expander("🔬 View Alpha Calculation Methodology"):
         st.markdown("""
         **1. Live Alpha (Actuals):**
