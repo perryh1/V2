@@ -74,7 +74,7 @@ if not check_password(): st.stop()
 
 # --- 3. SIDEBAR CONTROLS ---
 st.sidebar.markdown("# Hybrid OS")
-st.sidebar.caption("v14.15 Deployment (Geographic Mapping)")
+st.sidebar.caption("v14.16 Deployment (Alpha Transparency)")
 st.sidebar.write("---")
 
 st.sidebar.markdown("### 🔌 Gridstatus.io Integration")
@@ -208,8 +208,8 @@ def calculate_period_live_metrics(price_series, breakeven_val, ideal_m, ideal_b,
     except: return 0, 0, 0
 
 # --- 5. DASHBOARD INTERFACE ---
-t_baseload, t_hardin, t_evolution, t_tax, t_volatility, t_price_dsets = st.tabs([
-    "🏭 Thermal Baseload OS", "🏔️ BTC and Storage Revenue", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility", "📊 Price Datasets"
+t_baseload, t_hardin, t_evolution, t_tax, t_volatility = st.tabs([
+    "🏭 Thermal Baseload OS", "🏔️ BTC and Storage Revenue", "📊 Renewable Evolution", "🏛️ Institutional Tax Strategy", "📈 Long-Term Volatility"
 ])
 
 # ==========================================
@@ -353,32 +353,25 @@ with t_hardin:
 with t_evolution:
     st.markdown(f"### ⚙️ Renewable Performance Summary")
     
-    # --- NEW: Node-Specific Geographic Proxy Mapping ---
     geo_node_proxy = {
-        # ERCOT Nodes
         "HB_WEST": "Odessa, Texas",
         "HB_NORTH": "Dallas, Texas",
         "HB_SOUTH": "Corpus Christi, Texas",
         "HB_HOUSTON": "Houston, Texas",
         "LZ_WEST": "Midland, Texas",
         "LZ_SOUTH": "Brownsville, Texas",
-        # SPP Nodes
         "SPP_NORTH_HUB": "Hardin, Montana",
         "SPP_SOUTH_HUB": "Oklahoma City, Oklahoma",
-        # CAISO Nodes
         "TH_NP15_GEN-APND": "San Francisco, California",
         "TH_SP15_GEN-APND": "Los Angeles, California",
         "TH_ZP26_GEN-APND": "Bakersfield, California",
-        # PJM Nodes
         "WESTERN HUB": "Pittsburgh, Pennsylvania",
         "N ILLINOIS HUB": "Chicago, Illinois",
         "AEP GEN HUB": "Columbus, Ohio",
-        # NYISO Nodes
         "CAPITL": "Albany, New York",
         "HUD VL": "Poughkeepsie, New York",
         "N.Y.C.": "New York City, New York",
         "WEST": "Buffalo, New York",
-        # MISO Nodes
         "ILLINOIS.HUB": "Springfield, Illinois",
         "INDIANA.HUB": "Indianapolis, Indiana",
         "MINN.HUB": "Minneapolis, Minnesota",
@@ -397,7 +390,6 @@ with t_evolution:
         * **Formula Used:** `Effective Generation = (Nameplate MW) × 35.8% Blended CF`
         * **Details:** The `35.8%` represents a typical historical blend of utility-scale Solar (~20-25% NCF) and Onshore Wind (~40-45% NCF) for the target region. The capacity mix dynamically impacts the optimal BESS/Miner sizing ratio beneath the hood.
         """)
-    # ----------------------------------------------
     
     curr_p = price_hist.iloc[-1] if len(price_hist) > 0 else 0
     total_gen = solar_cap + wind_cap
@@ -413,6 +405,23 @@ with t_evolution:
 
     st.markdown("---")
     st.subheader("📅 Comparative Alpha Tracking")
+    
+    # --- NEW: Alpha Calculation Methodology Expander ---
+    with st.expander("🔬 View Alpha Calculation Methodology"):
+        st.markdown("""
+        **1. Live Alpha (Actuals):**
+        Calculated directly from the actual 5-minute interval telemetry for your selected Node.
+        * **Mining Revenue:** `Sum of Max(0, Breakeven - Grid Price) × Miner MW` for all captured intervals in the period.
+        * **Battery Revenue:** `Sum of Max(0, Grid Price - Breakeven) × Battery MW` for all captured intervals in the period.
+        * **Weighting:** The raw revenue capture is then dynamically weighted by the real-time capacity mix (Solar vs Wind ratios).
+
+        **2. Historic Predict (Theoretical Baseline):**
+        Calculated using macro-level 2025 systemic volatility estimates.
+        * **Mining Revenue:** Assumes the grid price clears below your breakeven threshold exactly 45.6% of the year, modeling a conservative $12/MWh average profit margin during those specific hours.
+        * **Battery Revenue:** Assumes a 12% annual dispatch factor specifically reserved for scarcity events, capturing a modeled $30/MWh average export premium.
+        * **Scaling:** These annualized theoretical figures are prorated strictly down to the exact 24H, 7D, or 30D lookback windows to allow direct variance comparison against live data.
+        """)
+    
     show_comparison = st.toggle("Compare Actual (Live) vs. Historic Strategy", value=True)
     h1, h2, h3 = st.columns(3)
     
@@ -525,19 +534,3 @@ with t_volatility:
         "2025 Rating": ["⭐⭐⭐⭐", "⭐⭐⭐⭐⭐", "⭐⭐", "⭐⭐⭐"]
     }
     st.dataframe(pd.DataFrame(iso_comparison), use_container_width=True)
-
-with t_price_dsets:
-    st.markdown("## 📊 Price Datasets")
-    col_live, col_hist = st.columns(2)
-    with col_live:
-        st.markdown(f"**🕒 24-Hour Live-Time Price Data ({selected_node})**")
-        if len(price_hist) > 0:
-            st.line_chart(price_hist.iloc[-288:]) 
-        else:
-            st.write("Waiting for telemetry data...")
-    with col_hist:
-        st.markdown(f"**📈 Historical Price Dataset ({selected_node})**")
-        if len(price_hist) > 0:
-            st.line_chart(price_hist)
-        else:
-            st.write("Waiting for historical data...")
