@@ -118,7 +118,7 @@ def get_live_data(api_key, iso, loc):
             if not historical_series.empty:
                 start_date = historical_series.index[-1] + pd.Timedelta(minutes=1)
             else:
-                start_date = pd.Timestamp.now(tz="US/Central") - pd.Timedelta(days=30)
+                start_date = pd.Timestamp.now(tz="US/Central") - pd.Timedelta(days=1)
                 
             end_date = pd.Timestamp.now(tz="US/Central")
             
